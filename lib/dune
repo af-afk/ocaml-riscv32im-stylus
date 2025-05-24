@@ -1,0 +1,9 @@
+(library
+ (name riscv32im)
+ (libraries
+  ppx_deriving
+  ppx_deriving.std
+  ppx_deriving.eq
+  ppx_deriving.show
+  ppx_sexp_conv
+  fmlib_std))

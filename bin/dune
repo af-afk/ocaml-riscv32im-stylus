@@ -1,0 +1,4 @@
+(executable
+ (public_name riscv32im)
+ (name main)
+ (libraries riscv32im))
