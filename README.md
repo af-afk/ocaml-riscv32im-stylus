@@ -17,3 +17,11 @@ ELF64 and a specific target.
 - [ ] Storage operations
 
 - [ ] Ethereum environment calls
+
+- [ ] Test everything (duh!)
+
+There are no tests right now. I'll bootstrap off the official testing framework to help
+with this.
+
+- [ ] Figure out how to simulate a proof using Risc Zero. See if I can get a prover onto
+Ethereum mainnet.
