@@ -1,6 +1,6 @@
 (library
- (name riscv32im)
- (public_name riscv32im)
+ (name riscv32im_stylus)
+ (public_name riscv32im_stylus)
  (libraries
   ppx_deriving
   ppx_deriving.std

@@ -1,6 +1,6 @@
 (lang dune 3.18)
 
-(name riscv32im)
+(name riscv32im_stylus)
 
 (generate_opam_files true)
 
@@ -12,8 +12,9 @@
 (license MIT)
 
 (package
- (name riscv32im)
- (synopsis "Simulates the RISCV32IM ELF files.")
+ (name riscv32im_stylus)
+ (synopsis
+  "Simulates RISCV32IM, works with ELF, and has environment calling for Ethereum features.")
  (depends ocaml)
  (tags
-  (riscv riscv32 riscv32im ocaml stylus)))
+  (riscv riscv32 riscv32im ocaml stylus ethereum)))

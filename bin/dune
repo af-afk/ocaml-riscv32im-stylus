@@ -1,4 +1,4 @@
 (executable
- (public_name riscv32im)
+ (public_name riscv32im_stylus)
  (name main)
- (libraries riscv32im))
+ (libraries riscv32im_stylus))
