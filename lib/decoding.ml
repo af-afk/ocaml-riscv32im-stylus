@@ -192,13 +192,13 @@ let mask_opcode_jalr = 0x67
 let mask_opcode_load = 0x3
 let mask_opcode_store = 0x23
 
+let mask_funct3_lw_and_sb = 0
 let mask_funct3_lh = 0x1
 let mask_funct3_lhu = 0x5
 let mask_funct3_lb = 0x3
 let mask_funct3_lbu = 0x4
 let mask_funct3_sw = 0x2
 let mask_funct3_sh = 0x1
-let mask_funct3_sb = 0
 
 (* ~~~ MEMORY ORDERING INSTRUCTIONS ~~~ *)
 
@@ -246,6 +246,7 @@ let unpack_operation w =
     )
   | op when op = mask_opcode_load -> (* LOAD *)
     (match funct3 with
+     | f when f = mask_funct3_lw_and_sb -> LW
      | f when f = mask_funct3_lh -> LH
      | f when f = mask_funct3_lhu -> LHU
      | f when f = mask_funct3_lb -> LB
@@ -256,7 +257,7 @@ let unpack_operation w =
     (match funct3 with
      | f when f = mask_funct3_sw -> SW
      | f when f = mask_funct3_sh -> SH
-     | f when f = mask_funct3_sb -> SB
+     | f when f = mask_funct3_lw_and_sb -> SB
      | _ -> invalid_arg "unknown STORE variant"
     )
   | op when op = mask_opcode_lui -> LUI

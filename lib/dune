@@ -1,5 +1,6 @@
 (library
  (name riscv32im)
+ (public_name riscv32im)
  (libraries
   ppx_deriving
   ppx_deriving.std
@@ -7,6 +8,6 @@
   ppx_deriving.show
   ppx_sexp_conv
   fmlib_std
-  owee)
+  libelf)
  (inline_tests)
  (preprocess (pps ppx_inline_test)))

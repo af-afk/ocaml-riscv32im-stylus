@@ -1,7 +1,7 @@
 (**
  * Lifted type that can be interpreted literally or converted to a
  * abstract representation.
- *)
+*)
 
 type reg = Registers.reg
 
@@ -15,7 +15,7 @@ and r_typ =
   ; r_typ_src1: reg
   ; r_typ_src2: reg }
 
-and u_type = { u_typ_dst: reg; u_typ_imm: int32 }
+and u_typ = { u_typ_dst: reg; u_typ_imm: int32 }
 
 and s_typ =
   { s_typ_src1: reg
@@ -58,15 +58,70 @@ and t =
   | Sll of r_typ
   | Srl of r_typ
   | Sra of r_typ
+  | Lui of u_typ
+  | Auipc of u_typ
+  | Jal of j_typ
+  | Sw of s_typ
+  | Sh of s_typ
+  | Sb of s_typ
+  | Mul of r_typ
+  | Mulh of r_typ
+  | Mulhsu of r_typ
+  | Mulhu of r_typ
+  | Div of r_typ
+  | Divu of r_typ
+  | Rem of r_typ
+  | Remu of r_typ
 [@@deriving show, eq, sexp]
 
 let from_word w =
   let open Decoding in
   let { t_operation; t_rd; t_rs1; t_rs2; t_imm } = Decoding.from w in
-  let _ = t_rs2 in
   let rd = Registers.of_int t_rd in
   let rs1 = Registers.of_int t_rs1 in
+  let rs2 = Registers.of_int t_rs2 in
   let i = { i_typ_dst = rd; i_typ_src = rs1; i_typ_imm = t_imm } in
+  let r = { r_typ_dst = rd; r_typ_src1 = rs1; r_typ_src2 = rs2 } in
+  let u = { u_typ_dst = rd; u_typ_imm = t_imm } in
+  let s = { s_typ_src1 = rs1; s_typ_src2 = rs2; s_typ_imm = t_imm } in
+  let j = { j_typ_dst = rd; j_typ_imm = t_imm } in
   match t_operation with
+  (* I-type instructions *)
   | ADDI -> Addi i
-  | _ -> failwith ""
+  | SLTI -> Slti i
+  | SLTIU -> Sltiu i
+  | ANDI -> Andi i
+  | ORI -> Ori i
+  | XORI -> Xori i
+  | SLLI -> Slli i
+  | SRLI -> Srli i
+  | SRAI -> Srai i
+  | JALR -> Jalr i
+  | LW -> Lw i
+  | LH -> Lh i
+  | LHU -> Lhu i
+  | LB -> Lb i
+  | LBU -> Lbu i
+  | FENCE -> Fence i
+  | ECALL -> Ecall i
+  | EBREAK -> Ebreak i
+  (* R-type instructions *)
+  | ADD -> Add r
+  | SUB -> Sub r
+  | SLT -> Slt r
+  | SLTU -> Sltu r
+  | AND -> And r
+  | OR -> Or r
+  | XOR -> Xor r
+  | SLL -> Sll r
+  | SRL -> Srl r
+  | SRA -> Sra r
+  (* U-type instructions *)
+  | LUI -> Lui u
+  | AUIPC -> Auipc u
+  (* J-type instruction *)
+  | JAL -> Jal j
+  (* S-type instructions *)
+  | SW -> Sw s
+  | SH -> Sh s
+  | SB -> Sb s
