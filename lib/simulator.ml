@@ -5,22 +5,11 @@
  * storage.
  *)
 
-module B = Fmlib_std.Btree.Map (Int)
-
-let load_word _ _ = failwith "TODO"
-let load_halfword _ _ = failwith "TODO"
-let load_halfword_unsigned _ _ = failwith "TODO"
-let load_byte _ _ = failwith "TODO"
-let load_byte_unsigned _ _ = failwith "TODO"
-let store_word _ _ _ = failwith "TODO"
-let store_halfword _ _ _ = failwith "TODO"
-let store_byte _ _ _ = failwith "TODO"
-
 let handle_syscall _ _ = failwith "TODO"
 
 type t =
   { r: Registers.t
-  ; b: int B.t
+  ; b: Memory.t
   ; pc: int32 }
 
 let (+) = Int32.add
@@ -371,3 +360,5 @@ let step t f =
   | Sw f -> apply_s f step_sw
   | Sh f -> apply_s f step_sh
   | Sb f -> apply_s f step_sb
+
+let simulate t = Seq.fold_left t step

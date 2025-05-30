@@ -1,0 +1,10 @@
+(lang dune 3.19)
+(using ctypes 0.3)
+
+(name libbinutils)
+
+(package
+ (name libbinutils)
+ (depends ocaml conf-binutils)
+ (tags
+  (binutils ctypes ocaml)))

@@ -19,10 +19,23 @@ module Word = struct
         let c1 = compare_unsigned_int a1 b1 in
         if c1 <> 0 then c1
         else compare_unsigned_int a0 b0
+
+  let to_bytes x = failwith "unimplemented"
+
+  let from_bytes x = failwith "unimplemented"
 end
 
-module Storage = Fmlib_std.Btree.Map (Word)
+module Storage = Map.Make (Word)
 
 type state = { state_storage: Word.t Storage.t }
 
 let state_empty = { state_storage = Storage.empty }
+
+let ($$) g f x = g (f x)
+
+let load_word_bytes32 t =
+  Word.to_bytes
+  $$ Option.value ~default:Word.zero
+  $$ Storage.find_opt t
+
+let store_word_bytes32 t = Storage.add t $$ Word.from_bytes
