@@ -8,12 +8,6 @@ incomplete, including said environment calls! This is a WIP.
 
 ## TODO
 
-- [ ] Decode ELF and work with it properly.
-
-I'm having issues linking against libelf on my computer. I don't want to have to handroll
-a ELF reader, and the alternatives seem to not be albe to be built, or only work with
-ELF64 and a specific target.
-
 - [ ] Storage operations
 
 - [ ] Ethereum environment calls
