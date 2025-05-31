@@ -30,6 +30,31 @@ let section_name sect = getf sect Section.name
 let section_vma sect = getf sect Section.vma
 let section_size sect = getf sect Section.size
 
+module Perms = struct
+  type t =
+    { alloc: bool
+    ; load: bool
+    ; reloc: bool
+    ; readonly: bool
+    ; code: bool
+    ; data: bool
+    ; rom: bool }
+  [@@deriving show]
+
+  let of_flags f =
+    let module F = Flag in
+    let h x = F.has f x in
+    { alloc = h F.alloc
+    ; load = h F.load
+    ; reloc = h F.reloc
+    ; readonly = h F.readonly
+    ; code = h F.code
+    ; data = h F.data
+    ; rom = h F.rom }
+end
+
+let section_perms sect = Perms.of_flags (getf sect Section.flags)
+
 let get_section_contents bfd sect offset =
   (*
    * We allocate this on the heap so that this has a shortlived life,

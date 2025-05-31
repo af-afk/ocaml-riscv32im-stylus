@@ -10,6 +10,7 @@ let () =
   let bfd = Libbinutils.open_obj (Array.get Sys.argv 1) in
   Libbinutils.iter_asections bfd (fun sect ->
       if Libbinutils.section_name sect = ".text" then (
+        Format.eprintf "Flags: %s\n" (Libbinutils.Perms.show (Libbinutils.section_perms sect));
         let x = Libbinutils.get_section_contents bfd sect 0 in
         print_hex_bigarray x
       )

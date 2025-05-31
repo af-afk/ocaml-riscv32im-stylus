@@ -1,6 +1,8 @@
 
 # RISCV32IM Stylus Simulator
 
+WARNING! This code does no checking for architecture type, endianness, blah blah!
+
 This code simulates Stylus code with a forked SDK that also generates RISCV32IM code. It
 uses environment calls to simulate the Ethereum storage tree and the entry calldata. It
 does not support calling out yet or any other operations. In fact, most things are
