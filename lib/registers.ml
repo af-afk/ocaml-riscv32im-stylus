@@ -27,8 +27,7 @@ type t =
 [@@deriving show, eq]
 
 let empty =
-  (* Zero state, though we always set the stack pointer to the start. *)
-  { t_r_zero = 0l; t_r_ra = 0l; t_r_sp = 0x7fffff00l; t_r_gp = 0l; t_r_tp = 0l
+  { t_r_zero = 0l; t_r_ra = 0l; t_r_sp = 0l; t_r_gp = 0l; t_r_tp = 0l
   ; t_r_t0 = 0l; t_r_t1 = 0l; t_r_t2 = 0l; t_r_s0 = 0l; t_r_s1 = 0l; t_r_a0 = 0l
   ; t_r_a1 = 0l; t_r_a2 = 0l; t_r_a3 = 0l; t_r_a4 = 0l; t_r_a5 = 0l; t_r_a6 = 0l
   ; t_r_a7 = 0l; t_r_s2 = 0l; t_r_s3 = 0l; t_r_s4 = 0l; t_r_s5 = 0l; t_r_s6 = 0l
