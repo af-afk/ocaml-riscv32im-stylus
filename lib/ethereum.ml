@@ -20,9 +20,9 @@ module Word = struct
         if c1 <> 0 then c1
         else compare_unsigned_int a0 b0
 
-  let to_bytes x = failwith "unimplemented"
+  let to_bytes _ = failwith "unimplemented"
 
-  let from_bytes x = failwith "unimplemented"
+  let from_bytes _ = failwith "unimplemented"
 end
 
 module Storage = Map.Make (Word)

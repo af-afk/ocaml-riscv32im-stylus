@@ -16,19 +16,24 @@ let open_obj n =
   );
   b
 
-let iter_asections bfd f =
-  let rec loop sect_ptr =
-    match sect_ptr with
-    | None -> ()
-    | Some ptr ->
-      let sect = !@ptr in
-      f sect;
-      loop (getf sect Section.next) in
+let asections_seq bfd =
+  let rec loop ptr () = match ptr with
+    | None -> Seq.Nil
+    | Some p -> Seq.Cons (!@p, loop (getf !@p Section.next))
+  in
   loop (getf !@bfd Bfd.sections)
 
 let section_name sect = getf sect Section.name
 let section_vma sect = getf sect Section.vma
 let section_size sect = getf sect Section.size
+
+let ($$) g f x = g (f x)
+
+(* This should be fine to convert since we're in a 32 bit machine! *)
+
+let get_section_size = Unsigned.ULong.to_int $$ section_size
+
+let get_section_vma = Unsigned.ULong.to_int $$ section_vma
 
 module Perms = struct
   type t =

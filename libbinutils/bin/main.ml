@@ -8,7 +8,7 @@ let print_hex_bigarray ba =
 let () =
   Libbinutils.init ();
   let bfd = Libbinutils.open_obj (Array.get Sys.argv 1) in
-  Libbinutils.iter_asections bfd (fun sect ->
+  Libbinutils.asections_seq bfd |> Seq.iter (fun sect ->
       if Libbinutils.section_name sect = ".text" then (
         Format.eprintf "Flags: %s\n" (Libbinutils.Perms.show (Libbinutils.section_perms sect));
         let x = Libbinutils.get_section_contents bfd sect 0 in

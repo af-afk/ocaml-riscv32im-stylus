@@ -96,35 +96,35 @@ let step_lw t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = load_word b addr in
+  let value = Memory.load_word b addr in
   { t with r = Registers.update r dst value }
 
 let step_lh t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = load_halfword b addr in
+  let value = Memory.load_halfword b addr in
   { t with r = Registers.update r dst value }
 
 let step_lhu t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = load_halfword_unsigned b addr in
+  let value = Memory.load_halfword_unsigned b addr in
   { t with r = Registers.update r dst value }
 
 let step_lb t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = load_byte b addr in
+  let value = Memory.load_byte b addr in
   { t with r = Registers.update r dst value }
 
 let step_lbu t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = load_byte_unsigned b addr in
+  let value = Memory.load_byte_unsigned b addr in
   { t with r = Registers.update r dst value }
 
 (* R-type instructions *)
@@ -205,21 +205,30 @@ let step_sw t src1 src2 imm =
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  { t with b = store_word b addr value }
+  (*
+   * Unfortunately, since I started working on this, it became apparent we
+   * couldn't build
+   *   this in a functional way once we added storage into the mix, so this
+   *   is a mutation until we have a situation where the storage changes.
+   *)
+   Memory.store_word b addr value;
+  t
 
 let step_sh t src1 src2 imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  { t with b = store_halfword b addr value }
+  Memory.store_halfword b addr value;
+  t
 
 let step_sb t src1 src2 imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  { t with b = store_byte b addr value }
+  Memory.store_byte b addr value;
+  t
 
 (* System instructions *)
 let step_fence t _ _ _ = t
