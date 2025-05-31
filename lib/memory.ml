@@ -8,12 +8,33 @@ module Region = struct
     ; readable: bool
     ; writeable: bool
     ; executable: bool }
+
+  let create ~base ~size ~readable ~writeable ~executable =
+    { mem = Bigarray.Array1.create Bigarray.Int8_unsigned Bigarray.C_layout (Int32.to_int size)
+    ; base
+    ; size
+    ; readable
+    ; writeable
+    ; executable }
 end
 
 type t = Region.t list
 
 let of_path name =
   let bfd = Libbinutils.open_obj name in
+  (*
+   * For our stack/heap combination, I've lazily allocated a very large
+   * region for it! Obviously, this isn't as good as having separate
+   * regions for security (no stack overflow, maybe the heap isn't
+   * executable, etc). But for our purposes, we leave this as-is.
+   * We're always going to assume 128m since that's our example.
+   *)
+  let user_region = Region.create
+      ~base:0x80000000l
+      ~size:0x8000000l  (* 128MB *)
+      ~readable:true
+      ~writeable:true
+      ~executable:true in
   Libbinutils.asections_seq bfd |> Seq.filter_map (fun sect ->
       let vma = Libbinutils.get_section_vma sect in
       let contents = Libbinutils.get_section_contents bfd sect 0 in
@@ -35,13 +56,13 @@ let of_path name =
       else
         None
     )
-  |> List.of_seq
+  |> Seq.cons user_region |> List.of_seq
 
 let find_region regions addr =
   List.find_opt (fun Region.{ base ; size ; _ } ->
-    addr >= base &&
-    addr < Int32.add base size
-  ) regions
+      addr >= base &&
+      addr < Int32.add base size
+    ) regions
 
 let load_byte regions addr =
   match find_region regions addr with

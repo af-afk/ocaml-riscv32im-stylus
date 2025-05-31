@@ -374,5 +374,11 @@ let step_lifted t f =
 let step t =
   let { b ; pc ; _ } = t in
   let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
-  let { r ; _ } = step_lifted t instr in
-  Printf.eprintf "%s\n" (Registers.show r)
+  Printf.eprintf "%s\n" (Lifted.show instr);
+  step_lifted t instr
+
+let step_count =
+  let rec loop t i =
+    if i = 0 then t
+    else loop (step t) (i - 1) in
+  loop
