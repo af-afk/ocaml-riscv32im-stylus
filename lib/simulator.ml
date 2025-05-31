@@ -11,6 +11,7 @@ type t =
   { r: Registers.t
   ; b: Memory.t
   ; pc: int32 }
+[@@deriving make]
 
 let (+) = Int32.add
 
@@ -308,7 +309,7 @@ let step_remu t dst src1 src2 =
     else Int32.unsigned_rem dividend divisor in
   { t with r = Registers.update r dst result }
 
-let step t f =
+let step_lifted t f =
   let open Lifted in
   let t = { t with pc = t.pc + 4l } in
   let apply_i { i_typ_dst; i_typ_src; i_typ_imm } f =
@@ -370,4 +371,8 @@ let step t f =
   | Sh f -> apply_s f step_sh
   | Sb f -> apply_s f step_sb
 
-let simulate t = Seq.fold_left t step
+let step t =
+  let { b ; pc ; _ } = t in
+  let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
+  let { r ; _ } = step_lifted t instr in
+  Printf.eprintf "%s\n" (Registers.show r)

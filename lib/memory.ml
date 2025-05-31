@@ -3,8 +3,8 @@ module Region = struct
   type arr = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
   type t =
     { mem: arr
-    ; base: int
-    ; size: int
+    ; base: int32
+    ; size: int32
     ; readable: bool
     ; writeable: bool
     ; executable: bool }
@@ -36,20 +36,21 @@ let of_path name =
         None
     )
   |> List.of_seq
+
 let find_region regions addr =
-  List.find_opt (fun region ->
-    addr >= Int32.of_int region.Region.base &&
-    addr < Int32.add (Int32.of_int region.Region.base) (Int32.of_int region.Region.size)
+  List.find_opt (fun Region.{ base ; size ; _ } ->
+    addr >= base &&
+    addr < Int32.add base size
   ) regions
 
 let load_byte regions addr =
   match find_region regions addr with
-  | Some region when region.readable ->
-    let offset = Int32.to_int addr - region.base in
-    Int32.of_int (Bigarray.Array1.get region.mem offset)
+  | Some { mem ; base ; readable ; _ } when readable ->
+    let offset = Int32.sub addr base in
+    let offset_int = Int32.to_int offset in
+    Int32.of_int (Bigarray.Array1.get mem offset_int)
   | Some _ -> failwith "Memory not readable"
   | None -> failwith "Unmapped memory access"
-
 let load_byte_unsigned regions addr = load_byte regions addr
 
 let load_halfword regions addr =
@@ -66,9 +67,10 @@ let load_word regions addr =
 
 let store_byte regions addr value =
   match find_region regions addr with
-  | Some region when region.writeable ->
-    let offset = Int32.to_int addr - region.base in
-    Bigarray.Array1.set region.mem offset (Int32.to_int value)
+  | Some { base ; mem ; writeable ; _ } when writeable ->
+    let offset = Int32.sub addr base in
+    let offset_int = Int32.to_int offset in
+    Bigarray.Array1.set mem offset_int (Int32.to_int value)
   | Some _ -> failwith "Memory not writeable"
   | None -> failwith "Unmapped memory access"
 

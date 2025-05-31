@@ -3,7 +3,14 @@
  * abstract representation.
 *)
 
+open Sexplib0.Sexp_conv
+
 type reg = Registers.reg
+
+let pp_reg = Registers.pp_reg
+let equal_reg = Registers.equal_reg
+let reg_of_sexp = Registers.reg_of_sexp
+let sexp_of_reg = Registers.sexp_of_reg
 
 type i_typ =
   { i_typ_dst: reg

@@ -31,9 +31,11 @@ let ($$) g f x = g (f x)
 
 (* This should be fine to convert since we're in a 32 bit machine! *)
 
-let get_section_size = Unsigned.ULong.to_int $$ section_size
+let get_section_size =
+  Int32.of_int $$ Unsigned.ULong.to_int $$ section_size
 
-let get_section_vma = Unsigned.ULong.to_int $$ section_vma
+let get_section_vma =
+  Int32.of_int $$ Unsigned.ULong.to_int $$ section_vma
 
 module Perms = struct
   type t =
