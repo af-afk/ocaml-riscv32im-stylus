@@ -7,9 +7,11 @@ open Types
 
 let init = Functions.bfd_init
 
+let close = Functions.bfd_close
+
 let open_obj n =
   let b = Functions.bfd_openr n None in
-  if Ctypes.is_null b then invalid_arg "Bfd null ptr";
+  if is_null b then invalid_arg "Bfd null ptr";
   if not (Functions.bfd_check_format b Types.Bfd_format.Object) then (
     Functions.bfd_close b;
     invalid_arg "Bfd not object"
@@ -72,7 +74,9 @@ let get_section_contents bfd sect offset =
   let offset = Unsigned.ULong.of_int offset in
   let size = section_size sect in
   let mapped =
-    Bigarray.(Array1.create int8_unsigned c_layout (Unsigned.ULong.to_int size)) in
+    Bigarray.(Array1.create
+                int8_unsigned c_layout
+                (Unsigned.ULong.to_int size)) in
   let rc = Functions.bfd_get_section_contents bfd (addr sect)
       (to_voidp (bigarray_start array1 mapped))
       offset
@@ -80,3 +84,29 @@ let get_section_contents bfd sect offset =
   if not rc then
     failwith "Bigarray bfd_get_section fail";
   mapped
+
+let get_symbol_table bfd =
+  Signed.Long.to_int (Functions.bfd_get_symtab_upper_bound bfd)
+
+let get_symbols bfd =
+  let size = get_symbol_table bfd in
+  let ptr_size = Ctypes.sizeof (ptr Asymbol.t) in
+  let arr = allocate_n (ptr Asymbol.t) ~count:(size / ptr_size) in
+  let count = Functions.bfd_canonicalize_symtab bfd arr in
+  arr, Signed.Long.to_int count
+
+let asymbols_seq bfd =
+  let symbols, count = get_symbols bfd in
+  let rec loop i () =
+    if i < count then
+      let x = !@(symbols +@ i) in
+      Seq.Cons (x, loop (i + 1))
+    else
+      Seq.Nil
+  in
+  loop 0
+
+let asymbol_name sym = getf !@sym Asymbol.name
+
+let asymbol_value =
+  Unsigned.UInt32.to_int $$ Functions.bfd_asymbol_value

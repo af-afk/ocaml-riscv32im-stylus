@@ -3,6 +3,13 @@ open Ctypes
 module Types (F : Ctypes.TYPE) = struct
   open F
 
+  module Asymbol = struct
+    type t
+    let t : t structure typ = structure "bfd_symbol"
+    let name = field t "name" string
+    let () = seal t
+  end
+
   module Section = struct
     type t
     let t : t structure typ = structure "bfd_section"

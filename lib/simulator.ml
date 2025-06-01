@@ -5,8 +5,6 @@
  * storage.
  *)
 
-let handle_syscall _ _ = failwith "TODO"
-
 type t =
   { r: Registers.t
   ; b: Memory.t
@@ -144,7 +142,6 @@ let step_lbu t dst src imm =
   bump_pc
     { t with r = Registers.update r dst value }
 
-(* R-type instructions *)
 let step_add t dst src1 src2 =
   let { r ; _ } = t in
   bump_pc
@@ -185,8 +182,8 @@ let step_or t dst src1 src2 =
 let step_xor t dst src1 src2 =
   let { r ; _ } = t in
   bump_pc
-  { t with r = Registers.update r dst (
-        Int32.logxor (Registers.get r src1) (Registers.get r src2)) }
+    { t with r = Registers.update r dst (
+          Int32.logxor (Registers.get r src1) (Registers.get r src2)) }
 
 let step_sll t dst src1 src2 =
   let { r ; _ } = t in
@@ -209,7 +206,6 @@ let step_sra t dst src1 src2 =
     { t with r = Registers.update r dst (
           Int32.shift_right (Registers.get r src1) shamt) }
 
-(* U-type instructions *)
 let step_lui t dst imm =
   let { r ; _ } = t in
   bump_pc
@@ -221,20 +217,17 @@ let step_auipc t dst imm =
     { t with r = Registers.update r dst (
           Int32.add pc (Int32.shift_left imm 12)) }
 
-(* J-type instruction *)
 let step_jal t dst imm =
   let { r ; pc ; _ } = t in
-    { t with
-      r = Registers.update r dst (Int32.add pc 4l);
-      pc = Int32.add pc imm }  (* Imm already sign-extended from decode *)
+  { t with
+    r = Registers.update r dst (Int32.add pc 4l);
+    pc = Int32.add pc imm }  (* Imm already sign-extended from decode *)
 
-(* S-type instructions *)
 let step_sw t src1 src2 imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  Printf.eprintf "\nSTEP SW!!!!: imm: %ld, addr: %ld, value: %ld\n" imm addr value;
   Memory.store_word b addr value;
   bump_pc t
 
@@ -243,7 +236,6 @@ let step_sh t src1 src2 imm =
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  Printf.eprintf "\nSTEP SH: imm: %ld, addr: %ld, value: %ld\n" imm addr value;
   Memory.store_halfword b addr value;
   bump_pc t
 
@@ -252,7 +244,6 @@ let step_sb t src1 src2 imm =
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
-  Printf.eprintf "\nSTEP SB: imm: %ld, addr: %ld, value: %ld\n" imm addr value;
   Memory.store_byte b addr value;
   bump_pc t
 
@@ -292,22 +283,36 @@ let step_bgeu t src1 src2 imm =
   if Registers.gteu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
-(* System instructions *)
 let step_fence t _ _ _ = bump_pc t
 
-let step_ecall t _ _ _ =
-  let { r ; _ } = t in
-  let syscall_num = Registers.get r `A7 in
-  (* TODO *)
-  handle_syscall t syscall_num
+(* Outputs a string from the memory range given in a0, with length in a1. *)
+let ecall_log_no = 0l
+
+let ecall_log t from length =
+  let { b; _ } = t in
+  Printf.eprintf "%s\n" (
+    Memory.load_into_str b from length);
+  t
+
+let step_ecall t dst src _ =
+  (match dst, src with
+   | `A0, `A0 -> ()
+   | _ -> failwith "Bad calling convention!"
+  );
+  let { r; _ } = t in
+  match Registers.get r `A7 with
+  | s when s = ecall_log_no ->
+    bump_pc (
+      ecall_log t (Registers.get r `A0) (Registers.get r `A1))
+  | r -> failwith (Printf.sprintf "Bad register: %lu" r)
 
 let step_ebreak _ _ _ _ = failwith "BREAK"
 
 let step_mul t dst src1 src2 =
   let { r ; _ } = t in
   bump_pc
-  { t with r = Registers.update r dst (
-        Int32.mul (Registers.get r src1) (Registers.get r src2)) }
+    { t with r = Registers.update r dst (
+          Int32.mul (Registers.get r src1) (Registers.get r src2)) }
 
 let step_mulh t dst src1 src2 =
   let { r ; _ } = t in
@@ -444,14 +449,13 @@ let step_lifted t f =
 let step t =
   let { b ; pc ; _ } = t in
   let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
-  Printf.eprintf "%s\n" (show t);
   step_lifted t instr
 
 let step_count =
   let rec loop t i =
     if i = 0 then t
-    else (
-      Printf.eprintf "count: %d\n" i;
-      loop (step t) (i - 1)
-    ) in
+    else loop (step t) (i - 1)in
   loop
+
+let step_forever =
+  let rec loop t = loop (step t) in loop

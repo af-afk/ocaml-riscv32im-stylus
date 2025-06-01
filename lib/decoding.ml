@@ -249,7 +249,6 @@ let unpack_operation w =
   let op = unpack_field w 0 7 in
   let funct3 = unpack_field w 12 3 in
   let funct7 = unpack_field w 25 7 in
-  Printf.eprintf "OP: %x, funct3: %x, funct7: %x\n" op funct3 funct7;
   match op with
   | op when op = mask_opcode_imm -> (* OP-IMM *)
     (match funct3 with

@@ -22,17 +22,26 @@ module Region = struct
     ; executable }
 
   let pp fmt { base ; size ; readable ; writeable ; executable ; _ } =
-    Format.fprintf fmt "{ base = 0x%lx; size = 0x%lx; readable = %b; writeable = %b; executable = %b }"
-      base size readable writeable executable
+    Format.fprintf fmt "{ base = 0x%lx; size = %lu (0x%lx); readable = %b; writeable = %b; executable = %b }"
+      base size size readable writeable executable
 end
 
 type t = Region.t list [@@deriving show]
+
+let ($$) g f x = g (f x)
 
 let of_path name =
   let ram_start = 0x80000000l in
   let ram_size = 0x08000000l in (* 128 MB *)
   let ram_end = Int32.add ram_start ram_size in
   let bfd = Libbinutils.open_obj name in
+  let pc =
+    match
+      Libbinutils.asymbols_seq bfd
+      |> Seq.find ((=) "_start" $$ Libbinutils.asymbol_name)
+    with
+    | Some sym -> Int32.of_int (Libbinutils.asymbol_value sym)
+    | None -> invalid_arg "No symbol titled _start" in
   let sections =
     Libbinutils.asections_seq bfd |> Seq.filter_map (fun sect ->
         let vma = Libbinutils.get_section_vma sect in
@@ -65,7 +74,7 @@ let of_path name =
       ~executable:false
   in
   let stack_top = Int32.sub ram_end 0x100l in
-  (heap_region :: sections, stack_top)
+  (heap_region :: sections), stack_top, pc
 
 let find_region regions addr =
   List.find_opt (fun Region.{ base ; size ; _ } ->
@@ -82,6 +91,16 @@ let load_byte regions addr =
   | Some _ -> failwith "Memory not readable"
   | None -> failwith (Printf.sprintf "Unmapped memory access addr: %lu" addr)
 
+let load_into_str regions addr len =
+  (* This is going to be very slow! Only useful in ecall logging. *)
+  let ($$) g f x = g (f x) in
+  String.init (Int32.to_int len) (
+    char_of_int
+    $$ Int32.to_int
+    $$ load_byte regions
+    $$ Int32.add addr
+    $$ Int32.of_int)
+
 let load_byte_unsigned regions addr = load_byte regions addr
 
 let load_halfword regions addr =
@@ -92,17 +111,9 @@ let load_halfword regions addr =
 let load_halfword_unsigned regions addr = load_halfword regions addr
 
 let load_word regions addr =
-  let b0 = load_byte regions addr in
-  let b1 = load_byte regions (Int32.add addr 1l) in
-  let b2 = load_byte regions (Int32.add addr 2l) in
-  let b3 = load_byte regions (Int32.add addr 3l) in
-  Printf.eprintf "Bytes at 0x%08lx: %02lx %02lx %02lx %02lx\n"
-    addr b0 b1 b2 b3;
   let h0 = load_halfword regions addr in
   let h1 = load_halfword regions (Int32.add addr 2l) in
-  let word = Int32.logor h0 (Int32.shift_left h1 16) in
-  Printf.eprintf "Word: 0x%08lx\n" word;
-  word
+  Int32.logor h0 (Int32.shift_left h1 16)
 
 let store_byte regions addr value =
   match find_region regions addr with
