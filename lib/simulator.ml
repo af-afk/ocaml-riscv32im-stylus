@@ -294,11 +294,7 @@ let ecall_log t from length =
     Memory.load_into_str b from length);
   t
 
-let step_ecall t dst src _ =
-  (match dst, src with
-   | `A0, `A0 -> ()
-   | _ -> failwith "Bad calling convention!"
-  );
+let step_ecall t _ _ _ =
   let { r; _ } = t in
   match Registers.get r `A7 with
   | s when s = ecall_log_no ->
@@ -450,12 +446,3 @@ let step t =
   let { b ; pc ; _ } = t in
   let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
   step_lifted t instr
-
-let step_count =
-  let rec loop t i =
-    if i = 0 then t
-    else loop (step t) (i - 1)in
-  loop
-
-let step_forever =
-  let rec loop t = loop (step t) in loop
