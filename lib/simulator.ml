@@ -257,31 +257,37 @@ let step_sb t src1 src2 imm =
   bump_pc t
 
 let step_beq t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r; _ } = t in
   if Registers.eq r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bne t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r; _ } = t in
   if not (Registers.eq r src1 src2) then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_blt t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r;_ } = t in
   if Registers.lt r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bltu t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r; _ } = t in
   if Registers.ltu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bge t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r; _ } = t in
   if Registers.gte r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bgeu t src1 src2 imm =
+  let imm = sign_extend_12 imm in
   let { pc; r; _ } = t in
   if Registers.gteu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
