@@ -79,6 +79,12 @@ and t =
   | Divu of r_typ
   | Rem of r_typ
   | Remu of r_typ
+  | Beq of b_typ
+  | Bne of b_typ
+  | Blt of b_typ
+  | Bltu of b_typ
+  | Bge of b_typ
+  | Bgeu of b_typ
 [@@deriving show, eq, sexp]
 
 let from_word w =
@@ -92,6 +98,7 @@ let from_word w =
   let u = { u_typ_dst = rd; u_typ_imm = t_imm } in
   let s = { s_typ_src1 = rs1; s_typ_src2 = rs2; s_typ_imm = t_imm } in
   let j = { j_typ_dst = rd; j_typ_imm = t_imm } in
+  let b = { b_typ_src1 = rs1 ; b_typ_src2 = rs2 ; b_typ_imm = t_imm } in
   match t_operation with
   (* I-type instructions *)
   | ADDI -> Addi i
@@ -132,3 +139,10 @@ let from_word w =
   | SW -> Sw s
   | SH -> Sh s
   | SB -> Sb s
+  (* B-type instructions *)
+  | BEQ -> Beq b
+  | BNE -> Bne b
+  | BLT -> Blt b
+  | BLTU -> Bltu b
+  | BGE -> Bge b
+  | BGEU -> Bgeu b

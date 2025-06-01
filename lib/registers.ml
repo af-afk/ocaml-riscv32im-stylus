@@ -34,6 +34,12 @@ let empty =
   ; t_r_s7 = 0l; t_r_s8 = 0l; t_r_s9 = 0l; t_r_s10 = 0l; t_r_s11 = 0l; t_r_t3 = 0l
   ; t_r_t4 = 0l; t_r_t5 = 0l; t_r_t6 = 0l }
 
+(*
+ * I got this from compiling a minimal asm example that jumps endlessly
+ * then dumping registers.
+ *)
+let empty_spike = empty
+
 type reg =
   [ `Zero (* Always zero! *)
   | `Ra   (* Return address *)
@@ -89,3 +95,19 @@ let get t = function
   | `A1 -> t.t_r_a1  | `A2 -> t.t_r_a2  | `A3 -> t.t_r_a3
   | `A4 -> t.t_r_a4  | `A5 -> t.t_r_a5  | `A6 -> t.t_r_a6
   | `A7 -> t.t_r_a7
+
+let eq t x y = get t x = get t y
+
+let equ t x y = Int32.unsigned_compare (get t x) (get t y)
+
+let lt t rs1 rs2 = get t rs1 < get t rs2
+
+let ltu t rs1 rs2 = equ t rs1 rs2 < 0
+
+let gt t rs1 rs2 = get t rs1 > get t rs2
+
+let gte t rs1 rs2 = get t rs1 >= get t rs2
+
+let gteu t rs1 rs2 = equ t rs1 rs2 >= 0
+
+let gtu t rs1 rs2 = equ t rs1 rs2 > 0

@@ -87,6 +87,30 @@ type operation =
    * of the destination (which is at program counter + 4) is set to rd.
   *)
   | JALR
+  (**
+   * Take the branch if registers rs1 and rs2 are equal.
+   *)
+  | BEQ
+  (**
+   * Take the branch if registers r1 and rs2 are unequal.
+   *)
+  | BNE
+  (**
+   * Take the branch if rs1 is less than rs2 using signed comparision.
+   *)
+  | BLT
+  (**
+   * Take the branch if rs1 is less than rs2 using an unsigned operation.
+   *)
+  | BLTU
+  (**
+   * Take the branch if rs1 is greater than rs2 using a signed operation.
+   *)
+  | BGE
+  (**
+   * Take the branch if rs1 is greater than rs2 using an unsigned operation.
+   *)
+  | BGEU
   (** Load a 32-bit value from memory into rd. *)
   | LW
   (**
@@ -187,15 +211,24 @@ let mask_funct7_sub = 0x20
 let mask_opcode_jal = 0x6f
 let mask_opcode_jalr = 0x67
 
+let mask_opcode_branch = 0x63
+
+let mask_funct3_beq = 0
+let mask_funct3_bne = 0x1
+let mask_funct3_blt = 0x4
+let mask_funct3_bltu = 0x6
+let mask_funct3_bge = 0x5
+let mask_funct3_bgeu = 0x7
+
 (* ~~~ LOAD AND STORE OPERATIONS ~~~ *)
 
 let mask_opcode_load = 0x3
 let mask_opcode_store = 0x23
 
-let mask_funct3_lw_and_sb = 0
+let mask_funct3_lb_and_sb = 0
 let mask_funct3_lh = 0x1
 let mask_funct3_lhu = 0x5
-let mask_funct3_lb = 0x3
+let mask_funct3_lw = 0x2
 let mask_funct3_lbu = 0x4
 let mask_funct3_sw = 0x2
 let mask_funct3_sh = 0x1
@@ -247,10 +280,10 @@ let unpack_operation w =
     )
   | op when op = mask_opcode_load -> (* LOAD *)
     (match funct3 with
-     | f when f = mask_funct3_lw_and_sb -> LW
+     | f when f = mask_funct3_lw -> LW
      | f when f = mask_funct3_lh -> LH
      | f when f = mask_funct3_lhu -> LHU
-     | f when f = mask_funct3_lb -> LB
+     | f when f = mask_funct3_lb_and_sb -> LB
      | f when f = mask_funct3_lbu -> LBU
      | _ -> invalid_arg "unknown LOAD variant"
     )
@@ -258,7 +291,7 @@ let unpack_operation w =
     (match funct3 with
      | f when f = mask_funct3_sw -> SW
      | f when f = mask_funct3_sh -> SH
-     | f when f = mask_funct3_lw_and_sb -> SB
+     | f when f = mask_funct3_lb_and_sb -> SB
      | _ -> invalid_arg "unknown STORE variant"
     )
   | op when op = mask_opcode_lui -> LUI
@@ -266,6 +299,16 @@ let unpack_operation w =
   | op when op = mask_opcode_jal -> JAL
   | op when op = mask_opcode_jalr -> JALR
   | op when op = mask_opcode_fence -> FENCE
+  | op when op = mask_opcode_branch -> (* BRANCH *)
+    (match funct3 with
+    | f when f = mask_funct3_beq -> BEQ
+    | f when f = mask_funct3_bne -> BNE
+    | f when f = mask_funct3_blt -> BLT
+    | f when f = mask_funct3_bltu -> BLTU
+    | f when f = mask_funct3_bge -> BGE
+    | f when f = mask_funct3_bgeu -> BGEU
+    | _ -> invalid_arg "unknown BRANCH variant"
+  )
   | op when op = mask_opcode_system ->
     let imm = unpack_field w 20 12 in
     if funct3 = 0 && imm = 0 then ECALL
@@ -275,11 +318,11 @@ let unpack_operation w =
 
 let decode_jal_imm w =
   let open Int32 in
-  let imm20 = shift_left (logand (shift_right w 31) 0x1l) 20 in
-  let imm10_1 = shift_left (logand (shift_right w 21) 0x3ffl) 1 in
-  let imm11 = shift_left (logand (shift_right w 20) 0x1l) 11 in
-  let imm19_12= shift_left (logand (shift_right w 12) 0xffl) 12 in
-  let imm = logor imm20 (logor imm19_12 (logor imm11 imm10_1)) in
+  let imm_20 = shift_left (logand (shift_right w 31) 0x1l) 20 in
+  let imm_10_1 = shift_left (logand (shift_right w 21) 0x3ffl) 1 in
+  let imm_11 = shift_left (logand (shift_right w 20) 0x1l) 11 in
+  let imm_19_12= shift_left (logand (shift_right w 12) 0xffl) 12 in
+  let imm = logor imm_20 (logor imm_19_12 (logor imm_11 imm_10_1)) in
   shift_right (shift_left imm 11) 11
 
 let decode_s_type t w =
@@ -287,6 +330,18 @@ let decode_s_type t w =
   let imm_4_0  = (w lsr 7) land 0x1f in
   let imm = imm_11_5 lor imm_4_0 in
   let imm = (imm lsl 20) asr 20 in
+  { t with
+    t_rs1 = unpack_field w 15 5
+  ; t_rs2 = unpack_field w 20 5
+  ; t_imm = Int32.of_int imm }
+
+let decode_b_type t w =
+  let imm_12 = ((w lsr 31) land 0x1) lsl 12 in
+  let imm_11 = ((w lsr 7) land 0x1) lsl 11 in
+  let imm_10_5 = ((w lsr 25) land 0x3f) lsl 5 in
+  let imm_4_1 = ((w lsr 8) land 0xf) lsl 1 in
+  let imm = imm_12 lor imm_11 lor imm_10_5 lor imm_4_1 in
+  let imm = (imm lsl 19) asr 19 in
   { t with
     t_rs1 = unpack_field w 15 5
   ; t_rs2 = unpack_field w 20 5
@@ -334,5 +389,7 @@ let from w =
     { t with
       t_rd = u 7 5
     ; t_imm = decode_jal_imm (Int32.of_int w) }
+  (* B-type instruction *)
+  | BEQ | BNE | BLT | BLTU | BGE | BGEU -> decode_b_type t w
   (* S-type instructions *)
   | SW | SH | SB -> decode_s_type t w
