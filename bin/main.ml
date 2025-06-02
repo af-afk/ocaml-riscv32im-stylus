@@ -4,10 +4,6 @@ open Riscv32im_stylus
 let max_cycles = 1000
 
 module Cycle_detection = struct
-  (*
-   * VERY poor man's cycle detection that we use during our test
-   * application before bootstrapping RISC-V's actual test suite.
-   *)
   type t = ((int32 * Registers.t) * int) list [@@deriving show]
 
   let empty: t = []
