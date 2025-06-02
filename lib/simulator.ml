@@ -476,7 +476,9 @@ let step fmt t =
   let { b ; pc ; _ } = t in
   let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
   try step_lifted fmt t instr with err -> (
-    pp fmt t;
-    Format.pp_force_newline fmt ();
-    raise err
-  )
+      pp fmt t;
+      Format.pp_force_newline fmt ();
+      Lifted.pp fmt instr;
+      Format.pp_force_newline fmt ();
+      raise err
+    )
