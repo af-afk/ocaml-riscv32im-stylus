@@ -6,7 +6,11 @@
   ppx_deriving.std
   ppx_deriving.eq
   ppx_deriving.show
+  ppx_hash
   ppx_sexp_conv
+  ppx_hash.runtime-lib
+  ppx_compare
+  sexplib0
   libbinutils)
  (inline_tests)
  (preprocess
@@ -16,4 +20,6 @@
    ppx_deriving.eq
    ppx_deriving.make
    ppx_deriving.std
+   ppx_compare
+   ppx_hash
    ppx_sexp_conv)))

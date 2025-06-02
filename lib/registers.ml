@@ -1,3 +1,7 @@
+open Sexplib0.Sexp_conv
+
+let hash_fold_int32 = Ppx_hash_lib.Std.Hash.Builtin.hash_fold_int32
+let compare_int32 = Int32.compare
 
 (**
  * Registers that the machine supports. Named after the convention I observed Spike
@@ -24,7 +28,7 @@ type t =
   ; t_r_a2: int32 ; t_r_a3: int32 ; t_r_a4: int32
   ; t_r_a5: int32 ; t_r_a6: int32
   ; t_r_a7: int32 (* Also the ECALL number *) }
-[@@deriving show, eq]
+[@@deriving show, eq, hash, compare, sexp]
 
 let empty =
   { t_r_zero = 0l; t_r_ra = 0l; t_r_sp = 0l; t_r_gp = 0l; t_r_tp = 0l
@@ -53,7 +57,7 @@ type reg =
   (* Argument/return registers *)
   | `A0 | `A1 | `A2 | `A3 | `A4 | `A5 | `A6
   | `A7  (* A7 also ECALL number *) ]
-[@@deriving show, eq, sexp]
+[@@deriving show, eq, sexp, compare, hash]
 
 let of_int = function
   |  0 -> `Zero |  1 -> `Ra   |  2 -> `Sp

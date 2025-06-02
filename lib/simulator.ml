@@ -8,6 +8,9 @@
 type t =
   { r: Registers.t
   ; b: Memory.t
+  ; e: Ethereum.t
+  ; cd_b: Calldata.t
+  ; rd_b: Calldata.t
   ; pc: int32 }
 [@@deriving show, make]
 
@@ -288,18 +291,45 @@ let step_fence t _ _ _ = bump_pc t
 (* Outputs a string from the memory range given in a0, with length in a1. *)
 let ecall_log_no = 0l
 
-let ecall_log t from length =
+(* Store a word to the Ethereum storage tree. *)
+let ecall_ethereum_store_no = 1l
+
+(* Load a word from the Ethereum storage tree. *)
+let ecall_ethereum_load_no = 2l
+
+(* Get the size of the arguments that were passed to the contract. *)
+let ecall_ethereum_args_no = 3l
+
+(* Write the output from this program. *)
+let ecall_ethereum_output_no = 4l
+
+let ecall_log fmt t from length =
   let { b; _ } = t in
-  Printf.eprintf "%s\n" (
-    Memory.load_into_str b from length);
+  Format.fprintf fmt "%s" (Memory.load_into_str b from length);
+  prerr_newline ();
   t
 
-let step_ecall t _ _ _ =
+let ecall_ethereum_store t ptr_key ptr_val =
+  let { e; b; _ } = t in
+  let key =
+    Ethereum.Word.of_array (Memory.load_into_array b ptr_key 32l) in
+  let v =
+    Ethereum.Word.of_array (Memory.load_into_array b ptr_val 32l) in
+  { t with e = Ethereum.store_word e key v }
+
+let ecall_ethereum_load t ptr_key ptr_write =
+  let { e; b; _ } = t in
+  let key =
+    Ethereum.Word.of_array (Memory.load_into_array b ptr_key 32l) in
+  let v = Ethereum.load_word e key in
+  Memory.store_array b ptr_write (Ethereum.Word.to_array v)
+
+let step_ecall fmt t _ _ _ =
   let { r; _ } = t in
   match Registers.get r `A7 with
   | s when s = ecall_log_no ->
     bump_pc (
-      ecall_log t (Registers.get r `A0) (Registers.get r `A1))
+      ecall_log fmt t (Registers.get r `A0) (Registers.get r `A1))
   | r -> failwith (Printf.sprintf "Bad register: %lu" r)
 
 let step_ebreak _ _ _ _ = failwith "BREAK"
@@ -372,7 +402,7 @@ let step_remu t dst src1 src2 =
     else Int32.unsigned_rem dividend divisor in
   bump_pc { t with r = Registers.update r dst result }
 
-let step_lifted t f =
+let step_lifted fmt t f =
   let open Lifted in
   let apply_i { i_typ_dst; i_typ_src; i_typ_imm } f =
     f t i_typ_dst i_typ_src i_typ_imm in
@@ -404,7 +434,7 @@ let step_lifted t f =
   | Lb f -> apply_i f step_lb
   | Lbu f -> apply_i f step_lbu
   | Fence f -> apply_i f step_fence
-  | Ecall f -> apply_i f step_ecall
+  | Ecall f -> apply_i f (step_ecall fmt)
   | Ebreak f -> apply_i f step_ebreak
   (* R-type *)
   | Add f -> apply_r f step_add
@@ -442,7 +472,11 @@ let step_lifted t f =
   | Bge f -> apply_b f step_bge
   | Bgeu f -> apply_b f step_bgeu
 
-let step t =
+let step fmt t =
   let { b ; pc ; _ } = t in
   let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
-  step_lifted t instr
+  try step_lifted fmt t instr with err -> (
+    pp fmt t;
+    Format.pp_force_newline fmt ();
+    raise err
+  )

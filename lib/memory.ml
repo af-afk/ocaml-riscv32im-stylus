@@ -91,12 +91,19 @@ let load_byte regions addr =
   | Some _ -> failwith "Memory not readable"
   | None -> failwith (Printf.sprintf "Unmapped memory access addr: %lu" addr)
 
+let ($$) g f x = g (f x)
+
 let load_into_str regions addr len =
-  (* This is going to be very slow! Only useful in ecall logging. *)
-  let ($$) g f x = g (f x) in
   String.init (Int32.to_int len) (
     char_of_int
     $$ Int32.to_int
+    $$ load_byte regions
+    $$ Int32.add addr
+    $$ Int32.of_int)
+
+let load_into_array regions addr len =
+  Array.init (Int32.to_int len) (
+    Int32.to_int
     $$ load_byte regions
     $$ Int32.add addr
     $$ Int32.of_int)
@@ -123,6 +130,11 @@ let store_byte regions addr value =
     Bigarray.Array1.set mem offset_int (Int32.to_int value)
   | Some _ -> failwith "Memory not writeable"
   | None -> failwith (Printf.sprintf "Unmapped memory access addr: %lu" addr)
+
+let store_array regions pos arr =
+  for i = 0 to Array.length arr do
+    store_byte regions (Int32.(add pos (of_int i))) (Array.get arr i)
+  done
 
 let store_halfword regions addr value =
   store_byte regions addr (Int32.logand value 0xffl);

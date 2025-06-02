@@ -1,4 +1,5 @@
 (executable
  (public_name riscv32im_stylus)
  (name main)
- (libraries riscv32im_stylus))
+ (libraries riscv32im_stylus)
+ (preprocess (pps ppx_compare ppx_deriving.show)))
