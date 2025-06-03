@@ -87,6 +87,36 @@ and t =
   | Bgeu of b_typ
 [@@deriving show, eq, sexp]
 
+let empty_i =
+  {i_typ_dst = Registers.zero
+  ; i_typ_src= Registers.zero
+  ; i_typ_imm= 0l }
+
+let empty_r =
+ { r_typ_dst = Registers.zero
+ ; r_typ_src1 = Registers.zero
+ ; r_typ_src2 = Registers.zero }
+
+let empty_u =
+  { u_typ_dst = Registers.zero
+  ; u_typ_imm = 0l }
+
+let empty_s =
+  { s_typ_src1 = Registers.zero
+  ; s_typ_src2 = Registers.zero
+  ; s_typ_imm = 0l }
+
+let empty_b =
+  { b_typ_src1 = Registers.zero
+  ; b_typ_src2 = Registers.zero
+  ; b_typ_imm = 0l }
+
+let empty_j =
+  { j_typ_dst = Registers.zero
+  ; j_typ_imm = 0l }
+
+let empty = Addi empty_i
+
 let from_word w =
   let open Decoding in
   let { t_operation; t_rd; t_rs1; t_rs2; t_imm } = Decoding.from w in

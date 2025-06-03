@@ -16,6 +16,13 @@ type t =
 
 let (+) = Int32.add
 
+let sign_extend_8 x =
+  let open Int32 in
+  let x = logand x 0xffl in
+  if logand x 0x80l <> 0l then
+    logor x (lognot 0xffl)
+  else x
+
 let sign_extend_12 x =
   let open Int32 in
   let x = logand x 0xfffl in
@@ -23,6 +30,20 @@ let sign_extend_12 x =
     logor x (lognot 0xfffl)
   else
     x
+
+let sign_extend_13 x =
+  let open Int32 in
+  let x = logand x 0x1fffl in
+  if logand x 0x1000l <> 0l then
+    logor x (lognot 0x1fffl)
+  else x
+
+let sign_extend_16 x =
+  let open Int32 in
+  let x = logand x 0xffffl in
+  if logand x 0x8000l <> 0l then
+    logor x (lognot 0xffffl)
+  else x
 
 let sign_extend_20 x =
   let open Int32 in
@@ -76,7 +97,6 @@ let step_xori t dst src imm =
 
 let step_slli t dst src imm =
   let { r ; _ } = t in
-  (* 0x1f = 0b11111 = 31 *)
   let bits = Int32.logand imm 0x1fl in
   bump_pc
     { t with r = Registers.update r dst (
@@ -102,48 +122,43 @@ let step_jalr t dst src imm =
   let target = Int32.add (Registers.get r src) imm in
   let target = Int32.logand target (Int32.lognot 1l) in
   { t with
-    r = Registers.update r dst (Int32.add pc 4l);
-    pc = target }
+    r = Registers.update r dst (Int32.add pc 4l)
+  ; pc = target }
 
 let step_lw t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_word b addr in
-  bump_pc
-    { t with r = Registers.update r dst value }
+  bump_pc { t with r = Registers.update r dst value }
 
 let step_lh t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = Memory.load_halfword b addr in
-  bump_pc
-    { t with r = Registers.update r dst value }
+  let value = sign_extend_16 (Memory.load_halfword b addr) in
+  bump_pc { t with r = Registers.update r dst value }
 
 let step_lhu t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_halfword_unsigned b addr in
-  bump_pc
-    { t with r = Registers.update r dst value }
+  bump_pc { t with r = Registers.update r dst value }
 
 let step_lb t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = Memory.load_byte b addr in
-  bump_pc
-    { t with r = Registers.update r dst value }
+  let value = sign_extend_8 (Memory.load_byte b addr) in
+  bump_pc { t with r = Registers.update r dst value }
 
 let step_lbu t dst src imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_byte_unsigned b addr in
-  bump_pc
-    { t with r = Registers.update r dst value }
+  bump_pc { t with r = Registers.update r dst value }
 
 let step_add t dst src1 src2 =
   let { r ; _ } = t in
@@ -238,7 +253,7 @@ let step_sh t src1 src2 imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
-  let value = Registers.get r src2 in
+  let value = Int32.logand (Registers.get r src2) 0xffffl in
   Memory.store_halfword b addr value;
   bump_pc t
 
@@ -246,42 +261,42 @@ let step_sb t src1 src2 imm =
   let { r ; b ; _ } = t in
   let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
-  let value = Registers.get r src2 in
+  let value = Int32.logand (Registers.get r src2) 0xffl in
   Memory.store_byte b addr value;
   bump_pc t
 
 let step_beq t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.eq r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bne t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if not (Registers.eq r src1 src2) then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_blt t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r;_ } = t in
   if Registers.lt r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bltu t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.ltu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bge t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.gte r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bgeu t src1 src2 imm =
-  let imm = sign_extend_12 imm in
+  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.gteu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
@@ -306,7 +321,7 @@ let ecall_ethereum_output_no = 4l
 let ecall_log fmt t from length =
   let { b; _ } = t in
   Format.fprintf fmt "%s" (Memory.load_into_str b from length);
-  prerr_newline ();
+  Format.pp_force_newline fmt ();
   t
 
 let ecall_ethereum_store t ptr_key ptr_val =
@@ -330,7 +345,7 @@ let step_ecall fmt t _ _ _ =
   | s when s = ecall_log_no ->
     bump_pc (
       ecall_log fmt t (Registers.get r `A0) (Registers.get r `A1))
-  | r -> failwith (Printf.sprintf "Bad register: %lu" r)
+  | r -> failwith (Printf.sprintf "Bad register: %ld" r)
 
 let step_ebreak _ _ _ _ = failwith "BREAK"
 
@@ -472,13 +487,22 @@ let step_lifted fmt t f =
   | Bge f -> apply_b f step_bge
   | Bgeu f -> apply_b f step_bgeu
 
-let step fmt t =
+let id x = x
+
+let step ?(before_lift = id) ?(after_lift = id) fmt t =
   let { b ; pc ; _ } = t in
-  let instr = Lifted.from_word (Int32.to_int (Memory.load_word b pc)) in
+  let word = before_lift (Memory.load_word b pc) in
+  let word_int = Int32.to_int word in
+  let instr =
+    try after_lift (Lifted.from_word word_int) with err -> (
+        pp fmt t;
+        Format.pp_force_newline fmt ();
+        Format.fprintf fmt "Loaded word: %ld, (%d)" word word_int;
+        Format.pp_force_newline fmt ();
+        raise err
+      ) in
   try step_lifted fmt t instr with err -> (
       pp fmt t;
-      Format.pp_force_newline fmt ();
       Lifted.pp fmt instr;
-      Format.pp_force_newline fmt ();
       raise err
     )

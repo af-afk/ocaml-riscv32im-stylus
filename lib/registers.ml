@@ -72,6 +72,8 @@ let of_int = function
   | 27 -> `S11  | 28 -> `T3   | 29 -> `T4
   | 30 -> `T5   | 31 -> `T6   | _ -> invalid_arg "unknown register"
 
+let zero = `Zero
+
 let update t dst x = match dst with
   | `Zero -> t (* We need to ignore here according to the spec! *)
   | `Ra -> { t with t_r_ra = x } | `Sp -> { t with t_r_sp = x } | `Gp -> { t with t_r_gp = x }
