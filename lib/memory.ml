@@ -146,7 +146,7 @@ let store_byte regions addr value =
   | None -> failwith (Printf.sprintf "Unmapped memory access addr: %ld" addr)
 
 let store_array regions pos arr =
-  for i = 0 to Array.length arr do
+  for i = 0 to Array.length arr - 1 do
     store_byte regions (Int32.(add pos (of_int i))) (Array.get arr i)
   done
 
