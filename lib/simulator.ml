@@ -450,7 +450,7 @@ let step ?(before_lift = id) ?(after_lift = id) fmt t =
   let word = before_lift (Memory.load_word b pc) in
   let word_int = Int32.to_int word in
   let instr =
-    try after_lift (Lifted.from_word word_int) with err -> (
+    try after_lift (Lifted.from_word pc word_int) with err -> (
         pp fmt t;
         Format.pp_force_newline fmt ();
         Format.fprintf fmt "Loaded word: %ld, (%d)" word word_int;

@@ -1,0 +1,6 @@
+(executable
+ (public_name dumper)
+ (name main)
+ (libraries riscv32im_stylus)
+ (preprocess (pps ppx_compare ppx_deriving.show)))
+

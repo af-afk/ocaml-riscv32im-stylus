@@ -88,14 +88,14 @@ and t =
 [@@deriving show, eq, sexp]
 
 let empty_i =
-  {i_typ_dst = Registers.zero
+  { i_typ_dst = Registers.zero
   ; i_typ_src= Registers.zero
-  ; i_typ_imm= 0l }
+  ; i_typ_imm = 0l }
 
 let empty_r =
- { r_typ_dst = Registers.zero
- ; r_typ_src1 = Registers.zero
- ; r_typ_src2 = Registers.zero }
+  { r_typ_dst = Registers.zero
+  ; r_typ_src1 = Registers.zero
+  ; r_typ_src2 = Registers.zero }
 
 let empty_u =
   { u_typ_dst = Registers.zero
@@ -117,19 +117,19 @@ let empty_j =
 
 let empty = Addi empty_i
 
-let from_word w =
+let from_word loc w =
   let open Decoding in
-  let { t_operation; t_rd; t_rs1; t_rs2; t_imm } = Decoding.from w in
-  let rd = Registers.of_int t_rd in
-  let rs1 = Registers.of_int t_rs1 in
-  let rs2 = Registers.of_int t_rs2 in
-  let i = { i_typ_dst = rd; i_typ_src = rs1; i_typ_imm = t_imm } in
+  let { operation; rd; rs1; rs2; imm; _ } = Decoding.from loc w in
+  let rd = Registers.of_int rd in
+  let rs1 = Registers.of_int rs1 in
+  let rs2 = Registers.of_int rs2 in
+  let i = { i_typ_dst = rd; i_typ_src = rs1; i_typ_imm = imm } in
   let r = { r_typ_dst = rd; r_typ_src1 = rs1; r_typ_src2 = rs2 } in
-  let u = { u_typ_dst = rd; u_typ_imm = t_imm } in
-  let s = { s_typ_src1 = rs1; s_typ_src2 = rs2; s_typ_imm = t_imm } in
-  let j = { j_typ_dst = rd; j_typ_imm = t_imm } in
-  let b = { b_typ_src1 = rs1 ; b_typ_src2 = rs2 ; b_typ_imm = t_imm } in
-  match t_operation with
+  let u = { u_typ_dst = rd; u_typ_imm = imm } in
+  let s = { s_typ_src1 = rs1; s_typ_src2 = rs2; s_typ_imm = imm } in
+  let j = { j_typ_dst = rd; j_typ_imm = imm } in
+  let b = { b_typ_src1 = rs1 ; b_typ_src2 = rs2 ; b_typ_imm = imm } in
+  match operation with
   (* I-type instructions *)
   | ADDI -> Addi i
   | SLTI -> Slti i
@@ -176,3 +176,114 @@ let from_word w =
   | BLTU -> Bltu b
   | BGE -> Bge b
   | BGEU -> Bgeu b
+
+let pp_reg = Registers.pp_reg
+let pp_reg_int = Registers.pp_reg
+
+let pp_reg_int_maybe fmt x =
+  Registers.pp_reg_int_maybe fmt (Int32.to_int x)
+
+let pp_i fmt { i_typ_dst ; i_typ_src ; i_typ_imm } =
+  Format.fprintf fmt "%a,%a,%a"
+    pp_reg
+    i_typ_dst
+    pp_reg_int
+    i_typ_src
+    pp_reg_int_maybe
+    i_typ_imm
+
+let pp_r fmt { r_typ_dst ; r_typ_src1 ; r_typ_src2 } =
+  Format.fprintf fmt "%a,%a,%a"
+    pp_reg
+    r_typ_dst
+    pp_reg
+    r_typ_src1
+    pp_reg
+    r_typ_src2
+
+let pp_u fmt { u_typ_dst ; u_typ_imm } =
+  Format.fprintf fmt "%a,%ld" pp_reg u_typ_dst u_typ_imm
+
+let pp_s fmt { s_typ_src1 ; s_typ_src2 ; s_typ_imm } =
+  Format.fprintf fmt "%a,%a,%a"
+    pp_reg
+    s_typ_src1
+    pp_reg
+    s_typ_src2
+    pp_reg_int_maybe
+    s_typ_imm
+
+let pp_b fmt { b_typ_src1 ; b_typ_src2 ; b_typ_imm } =
+  Format.fprintf fmt "%a,%a,%a"
+    pp_reg
+    b_typ_src1
+    pp_reg
+    b_typ_src2
+    pp_reg_int_maybe
+    b_typ_imm
+
+let pp_j fmt { j_typ_dst ; j_typ_imm } =
+  Format.fprintf fmt "%a,%a"
+    pp_reg
+    j_typ_dst
+    pp_reg_int_maybe
+    j_typ_imm
+
+let pp_objdump fmt t =
+  let f s = Format.fprintf fmt s in
+  match t with
+  (* I-type instructions *)
+  | Addi i -> f "addi\t"; pp_i fmt i
+  | Slti i -> f "slti\t"; pp_i fmt i
+  | Sltiu i -> f "sltiu\t"; pp_i fmt i
+  | Andi i -> f "andi\t"; pp_i fmt i
+  | Ori i -> f "ori\t"; pp_i fmt i
+  | Xori i -> f "xori\t"; pp_i fmt i
+  | Slli i -> f "slli\t"; pp_i fmt i
+  | Srli i -> f "srli\t"; pp_i fmt i
+  | Srai i -> f "srai\t"; pp_i fmt i
+  | Jalr i -> f "jalr\t"; pp_i fmt i
+  | Lw i -> f "lw\t"; pp_i fmt i
+  | Lh i -> f "lh\t"; pp_i fmt i
+  | Lhu i -> f "lhu\t"; pp_i fmt i
+  | Lb i -> f "lb\t"; pp_i fmt i
+  | Lbu i -> f "lbu\t"; pp_i fmt i
+  | Fence i -> f "fence\t"; pp_i fmt i
+  | Ecall i -> f "ecall\t"; pp_i fmt i
+  | Ebreak i -> f "ebreak\t"; pp_i fmt i
+  (* R-type instructions *)
+  | Add r -> f "add\t"; pp_r fmt r
+  | Sub r -> f "sub\t"; pp_r fmt r
+  | Slt r -> f "slt\t"; pp_r fmt r
+  | Sltu r -> f "sltu\t"; pp_r fmt r
+  | And r -> f "and\t"; pp_r fmt r
+  | Or r -> f "or\t"; pp_r fmt r
+  | Xor r -> f "xor\t"; pp_r fmt r
+  | Sll r -> f "sll\t"; pp_r fmt r
+  | Srl r -> f "srl\t"; pp_r fmt r
+  | Sra r -> f "sra\t"; pp_r fmt r
+  (* M-extension instructions (R-type) *)
+  | Mul r -> f "mul\t"; pp_r fmt r
+  | Mulh r -> f "mulh\t"; pp_r fmt r
+  | Mulhsu r -> f "mulhsu\t"; pp_r fmt r
+  | Mulhu r -> f "mulhu\t"; pp_r fmt r
+  | Div r -> f "div\t"; pp_r fmt r
+  | Divu r -> f "divu\t"; pp_r fmt r
+  | Rem r -> f "rem\t"; pp_r fmt r
+  | Remu r -> f "remu\t"; pp_r fmt r
+  (* U-type instructions *)
+  | Lui u -> f "lui\t"; pp_u fmt u
+  | Auipc u -> f "auipc\t"; pp_u fmt u
+  (* J-type instruction *)
+  | Jal j -> f "jal\t"; pp_j fmt j
+  (* S-type instructions *)
+  | Sw s -> f "sw\t"; pp_s fmt s
+  | Sh s -> f "sh\t"; pp_s fmt s
+  | Sb s -> f "sb\t"; pp_s fmt s
+  (* B-type instructions *)
+  | Beq b -> f "beq\t"; pp_b fmt b
+  | Bne b -> f "bne\t"; pp_b fmt b
+  | Blt b -> f "blt\t"; pp_b fmt b
+  | Bltu b -> f "bltu\t"; pp_b fmt b
+  | Bge b -> f "bge\t"; pp_b fmt b
+  | Bgeu b -> f "bgeu\t"; pp_b fmt b

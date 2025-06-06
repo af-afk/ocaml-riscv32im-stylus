@@ -140,4 +140,4 @@ type t =
   | ECALL
   (** Cause a debugger break to the environment. *)
   | EBREAK
-[@@deriving eq, sexp]
+[@@deriving eq, sexp, show]

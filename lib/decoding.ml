@@ -4,21 +4,27 @@
  * lengths.
 *)
 
+open Sexplib0.Sexp_conv
+
 (*
  * Decoded word in our high semi-high representation. We do not include the opcode,
  * funct3 or funct7 here! These fields are turned into the operation.
  *)
 type t =
-  { t_operation: Operation.t
+  (** Location of the operation. *)
+  { loc: int32
+  (** The word before it was decoded. *)
+  ; word: int
+  ; operation: Operation.t
   (** Destination register. *)
-  ; t_rd: int
+  ; rd: int
   (** The first register in an instruction. *)
-  ; t_rs1: int
+  ; rs1: int
   (** The second register in an instruction. *)
-  ; t_rs2: int
+  ; rs2: int
   (** The immediate literal embedded in the instruction. Variably sized. *)
-  ; t_imm: int32 }
-[@@deriving eq, make]
+  ; imm: int32 }
+[@@deriving eq, make, sexp, show]
 
 let sign_extend_12 x =
   let open Int32 in
@@ -52,11 +58,13 @@ let sign_extend_20 x =
 
 (* Decoded word higher level representation. *)
 let empty =
-  { t_operation = ADDI
-  ; t_rd = 0
-  ; t_rs1 = 0
-  ; t_rs2 = 0
-  ; t_imm = 0l }
+  { loc = 0l
+  ; word = 0
+  ; operation = ADDI
+  ; rd = 0
+  ; rs1 = 0
+  ; rs2 = 0
+  ; imm = 0l }
 
 (* ~~~ INTERMEDIATE OPERATIONS ~~~ *)
 
@@ -218,9 +226,9 @@ let decode_s_type t w =
   let imm = imm_11_5 lor imm_4_0 in
   let imm = sign_extend_12 (Int32.of_int imm) in
   { t with
-    t_rs1 = unpack_field w 15 5
-  ; t_rs2 = unpack_field w 20 5
-  ; t_imm = imm }
+    rs1 = unpack_field w 15 5
+  ; rs2 = unpack_field w 20 5
+  ; imm = imm }
 
 let decode_b_type t w =
   let imm_12 = ((w lsr 31) land 0x1) lsl 12 in
@@ -230,13 +238,13 @@ let decode_b_type t w =
   let imm = imm_12 lor imm_11 lor imm_10_5 lor imm_4_1 in
   let imm = sign_extend_13 (Int32.of_int imm) in
   { t with
-    t_rs1 = unpack_field w 15 5
-  ; t_rs2 = unpack_field w 20 5
-  ; t_imm = imm }
+    rs1 = unpack_field w 15 5
+  ; rs2 = unpack_field w 20 5
+  ; imm = imm }
 
-let from w =
+let from loc w =
   let op = unpack_operation w in
-  let t = { empty with t_operation = op } in
+  let t = { empty with operation = op ; word = w; loc } in
   let u = unpack_field w in
   match op with
   (* I-type instructions *)
@@ -244,41 +252,41 @@ let from w =
   | ORI | XORI | JALR | LH | LHU | LB | LBU | LW ->
     let imm = sign_extend_12 (Int32.of_int (u 20 12)) in
     { t with
-      t_rd = u 7 5
-    ; t_rs1 = u 15 5
-    ; t_imm = imm }
+      rd = u 7 5
+    ; rs1 = u 15 5
+    ; imm = imm }
   | SLLI | SRLI | SRAI ->
     let imm = sign_extend_12 (Int32.of_int (u 20 12)) in
     { t with
-      t_rd = u 7 5
-    ; t_rs1 = u 15 5
-    ; t_imm = imm }
+      rd = u 7 5
+    ; rs1 = u 15 5
+    ; imm = imm }
   | ECALL | EBREAK ->
-    { t with t_rd = 0; t_rs1 = 0; t_imm = 0l }
+    { t with rd = 0; rs1 = 0; imm = 0l }
   | FENCE ->
     { t with
-      t_rd = u 7 5;
-      t_rs1 = u 15 5;
-      t_imm = Int32.of_int (((u 28 4) lsl 8) lor ((u 24 4) lsl 4) lor (u 20 4))
+      rd = u 7 5;
+      rs1 = u 15 5;
+      imm = Int32.of_int (((u 28 4) lsl 8) lor ((u 24 4) lsl 4) lor (u 20 4))
     }
   (* R-type instructions *)
   | ADD | SUB | SLT | SLTU | AND | OR | XOR
   | SLL | SRL | SRA ->
     { t with
-      t_rd = u 7 5
-    ; t_rs1 = u 15 5
-    ; t_rs2 = u 20 5 }
+      rd = u 7 5
+    ; rs1 = u 15 5
+    ; rs2 = u 20 5 }
   (* U-type instructions *)
   | LUI | AUIPC ->
     let imm = sign_extend_20 (Int32.of_int (u 12 20)) in
     { t with
-      t_rd = u 7 5
-    ; t_imm = imm }
+      rd = u 7 5
+    ; imm = imm }
   (* J-type instruction *)
   | JAL ->
     { t with
-      t_rd = u 7 5
-    ; t_imm = decode_jal_imm (Int32.of_int w) }
+      rd = u 7 5
+    ; imm = decode_jal_imm (Int32.of_int w) }
   (* B-type instruction *)
   | BEQ | BNE | BLT | BLTU | BGE | BGEU -> decode_b_type t w
   (* S-type instructions *)

@@ -26,6 +26,19 @@ module Region = struct
   let pp fmt { desc ; base ; size ; readable ; writeable ; executable ; _ } =
     Format.fprintf fmt "{ desc = %s; base = %ld (0x%lx); size = %ld (0x%lx); readable = %b; writeable = %b; executable = %b }"
       desc base base size size readable writeable executable
+
+  let to_seq_words { mem ; _ } =
+    let module B = Bigarray.Array1 in
+    let get = B.get mem in
+    let rec loop i () =
+      if B.dim mem = i then Seq.Nil
+      else
+        let b0 = get i in
+        let b1 = get (i + 1) in
+        let b2 = get (i + 2) in
+        let b3 = get (i + 3) in
+        Seq.Cons (b0 lor (b1 lsl 8) lor (b2 lsl 16) lor (b3 lsl 24), loop (i + 4)) in
+    loop 0
 end
 
 type t = Region.t list [@@deriving show]
@@ -109,8 +122,8 @@ let load_into_array regions addr len =
 let load_byte_unsigned regions addr =
   match find_region regions addr with
   | Some { mem; base; readable; _ } when readable ->
-      let offset = Int32.to_int (Int32.sub addr base) in
-      Int32.of_int (Bigarray.Array1.get mem offset land 0xff)
+    let offset = Int32.to_int (Int32.sub addr base) in
+    Int32.of_int (Bigarray.Array1.get mem offset land 0xff)
   | Some _ -> failwith "Memory not readable"
   | None -> failwith (Printf.sprintf "Unmapped memory access addr: %ld" addr)
 

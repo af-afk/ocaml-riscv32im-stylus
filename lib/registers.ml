@@ -57,7 +57,22 @@ type reg =
   (* Argument/return registers *)
   | `A0 | `A1 | `A2 | `A3 | `A4 | `A5 | `A6
   | `A7  (* A7 also ECALL number *) ]
-[@@deriving show, eq, sexp, compare, hash]
+[@@deriving eq, sexp, compare, hash, enum]
+
+let pp_reg fmt x = Format.fprintf fmt "%s" (match x with
+    | `Zero -> "zero"
+    | `Ra -> "ra"
+    | `Sp -> "sp"
+    | `Gp -> "gp"
+    | `Tp -> "tp"
+    | `T0 -> "t0" | `T1 -> "t1" | `T2 -> "t2" | `T3 -> "t3"
+    | `T4 -> "t4" | `T5 -> "t5" | `T6 -> "t6"
+    | `S0 -> "s0" | `S1 -> "s1" | `S2 -> "s2" | `S3 -> "s3"
+    | `S4 -> "s4" | `S5 -> "s5" | `S6 -> "s6" | `S7 -> "s7"
+    | `S8 -> "s8" | `S9 -> "s9" | `S10 -> "s10" | `S11 -> "s11"
+    | `A0 -> "a0" | `A1 -> "a1" | `A2 -> "a2" | `A3 -> "a3"
+    | `A4 -> "a4" | `A5 -> "a5" | `A6 -> "a6" | `A7 -> "a7"
+)
 
 let of_int = function
   |  0 -> `Zero |  1 -> `Ra   |  2 -> `Sp
@@ -71,6 +86,13 @@ let of_int = function
   | 24 -> `S8   | 25 -> `S9   | 26 -> `S10
   | 27 -> `S11  | 28 -> `T3   | 29 -> `T4
   | 30 -> `T5   | 31 -> `T6   | _ -> invalid_arg "unknown register"
+
+let of_int_opt x = try Some (of_int x) with Invalid_argument _ -> None
+
+let pp_reg_int_maybe fmt int =
+  match of_int_opt int with
+  | Some reg ->  Format.fprintf fmt "%d(%a)" int pp_reg reg
+  | None -> Format.fprintf fmt "%d" int
 
 let zero = `Zero
 
