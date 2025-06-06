@@ -4,155 +4,12 @@
  * lengths.
 *)
 
-(* Logical operations. From the variant field and the opcode field. *)
-type operation =
-  (* ~~~ INTEGER REGISTER-IMMEDIATE INSTRUCTIONS ~~~ *)
-  (* Extends the sign-extended 12-bit immediate to register rs1. *)
-  | ADDI
-  (**
-   * Set less than immediate places the value 1 in register rd if register rs1 is less than
-   * the sign-extended immediate when both are treated as signed numbers, else 0 is written to
-   * rd.
-  *)
-  | SLTI
-  (**
-   * SLTIU compares the values as unsigned numbers (the immediate is first
-   * sign-extended to XLEN bits, then treated as an unsigned number).
-  *)
-  | SLTIU
-  (** Bitwise AND on register rs1 and the sign-extended 12 bit immediate and place the result
-   * in rd. *)
-  | ANDI
-  (** Bitwise OR and the remainder of ANDI. *)
-  | ORI
-  (** Bitwise XOR and the remainder of ANDI. XORI rd, rs1, -1 performs a bitwise logical
-   * inversion of register rs1. *)
-  | XORI
-  (** Logical left shift rs1 by the lower 5 bits of the I-immediate field. Right shift type is
-   * encoded in bit 30. Zeroes are shifted into the lower bits. *)
-  | SLLI
-  (** Logical right shift like the previous. *)
-  | SRLI
-  (** Arithmetic right shift (the original sign bit is copied into the vacated upper bits. *)
-  | SRAI
-  (* ~~~ LUI/AUIPC INSTRUCTIONS ~~~ *)
-  (**
-   * Load upper intermediate is used to build 32-bit constants and uses the U type
-   * format. The intermediate value is placed into the register rd, filling the lowest
-   * 12 bits with zeroes.
-  *)
-  | LUI
-  (*
-   * Arithmetic right shift (the original sign bit is copied into the vacated upper bits.
-   *)
-  | AUIPC
-  (* ~~~ INTEGER REGISTER-REGISTER INSTRUCTIONS ~~~ *)
-  (**
-   * Perform the addition of rs1 and rs2. Overflows are ignored, and XLEN bits of
-   * results are written to the destination rd.
-  *)
-  | ADD
-  (** Perform the subtraction of rs1 and rs2. Same overflow behaviour as ADD. *)
-  | SUB
-  (** Perform signed comparision. *)
-  | SLT
-  (**
-   * Perform unsigned comparision. Writing 1 to rd if rs1 < rs2. Note that SLTU
-   * rd, x0 rs2 sets rd to 1 if rs2 is not equal to 0. Otherwise sets rd to zero.
-  *)
-  | SLTU
-  (** Bitwise AND. *)
-  | AND
-  (** Bitwise OR. *)
-  | OR
-  (** Bitwise XOR. *)
-  | XOR
-  | SLL
-  | SRL
-  | SRA
-  (* ~~~ CONTROL TRANSFER INSTRUCTIONS ~~~ *)
-  (**
-   * JAL performs an unconditional jump, sign-extending the offset and
-   * added to the address of the jump instruction to form the target
-   * address. It stores the address of the instruction following the jump
-   * (which is at program counter + 4) into register rd. The standard
-   * calling convention uses x1 as the return address, and x5 as an
-   * alternate link register.
-  *)
-  | JAL
-  (**
-   * JALR jump instruction obtains the target address for the JUMP
-   * by adding the sign-extended 12-bit immediate to the register rs1,
-   * then setting the least significant bit of the result to zero. The address
-   * of the destination (which is at program counter + 4) is set to rd.
-  *)
-  | JALR
-  (**
-   * Take the branch if registers rs1 and rs2 are equal.
-   *)
-  | BEQ
-  (**
-   * Take the branch if registers r1 and rs2 are unequal.
-   *)
-  | BNE
-  (**
-   * Take the branch if rs1 is less than rs2 using signed comparision.
-   *)
-  | BLT
-  (**
-   * Take the branch if rs1 is less than rs2 using an unsigned operation.
-   *)
-  | BLTU
-  (**
-   * Take the branch if rs1 is greater than rs2 using a signed operation.
-   *)
-  | BGE
-  (**
-   * Take the branch if rs1 is greater than rs2 using an unsigned operation.
-   *)
-  | BGEU
-  (** Load a 32-bit value from memory into rd. *)
-  | LW
-  (**
-   * Load a 16-bit value from memory, then sign-extend it to 32 bits before
-   * storing in rd.
-  *)
-  | LH
-  (**
-   * Load a 16-bit value from memory but then zero extend it to 32 bits
-   * before storing it in rd.
-  *)
-  | LHU
-  (**
-   * Load a 8-bit value from memory, then sign extend it to 32 bits before
-   * storing it in rd.
-  *)
-  | LB
-  (**
-   * Load a 8-bit from memory, but then zero extend it to 32 bits before
-   * storing it in rd.
-  *)
-  | LBU
-  (** Store the lower 32 bits of the register rs2 to memory. *)
-  | SW
-  (** Store the lower 16 bits of the register rs2 to memory. *)
-  | SH
-  (** Store the lower 8 bits of the register rs2 to memory. *)
-  | SB
-  (** Guarantee consistency of memory accesses. *)
-  | FENCE
-  (** Environment (system) call interface. Makes a call out with the ABI. *)
-  | ECALL
-  (** Cause a debugger break to the environment. *)
-  | EBREAK
-[@@deriving eq, sexp]
-
 (*
  * Decoded word in our high semi-high representation. We do not include the opcode,
  * funct3 or funct7 here! These fields are turned into the operation.
  *)
 type t =
-  { t_operation: operation
+  { t_operation: Operation.t
   (** Destination register. *)
   ; t_rd: int
   (** The first register in an instruction. *)
@@ -162,6 +19,36 @@ type t =
   (** The immediate literal embedded in the instruction. Variably sized. *)
   ; t_imm: int32 }
 [@@deriving eq, make]
+
+let sign_extend_12 x =
+  let open Int32 in
+  let x = logand x 0xfffl in
+  if logand x 0x800l <> 0l then
+    logor x (lognot 0xfffl)
+  else
+    x
+
+let sign_extend_13 x =
+  let open Int32 in
+  let x = logand x 0x1fffl in
+  if logand x 0x1000l <> 0l then
+    logor x (lognot 0x1fffl)
+  else x
+
+let sign_extend_16 x =
+  let open Int32 in
+  let x = logand x 0xffffl in
+  if logand x 0x8000l <> 0l then
+    logor x (lognot 0xffffl)
+  else x
+
+let sign_extend_20 x =
+  let open Int32 in
+  let x = logand x 0xfffffl in
+  if logand x 0x80000l <> 0l then
+    logor x (lognot 0xfffffl)
+  else
+    x
 
 (* Decoded word higher level representation. *)
 let empty =
@@ -246,6 +133,7 @@ let mask x = (1 lsl x) - 1
 let unpack_field w i l = (w lsr i) land (mask l)
 
 let unpack_operation w =
+  let open Operation in
   let op = unpack_field w 0 7 in
   let funct3 = unpack_field w 12 3 in
   let funct7 = unpack_field w 25 7 in
@@ -328,11 +216,11 @@ let decode_s_type t w =
   let imm_11_5 = ((w lsr 25) land 0x7f) lsl 5 in
   let imm_4_0  = (w lsr 7) land 0x1f in
   let imm = imm_11_5 lor imm_4_0 in
-  let imm = (imm lsl 20) asr 20 in
+  let imm = sign_extend_12 (Int32.of_int imm) in
   { t with
     t_rs1 = unpack_field w 15 5
   ; t_rs2 = unpack_field w 20 5
-  ; t_imm = Int32.of_int imm }
+  ; t_imm = imm }
 
 let decode_b_type t w =
   let imm_12 = ((w lsr 31) land 0x1) lsl 12 in
@@ -340,11 +228,11 @@ let decode_b_type t w =
   let imm_10_5 = ((w lsr 25) land 0x3f) lsl 5 in
   let imm_4_1 = ((w lsr 8) land 0xf) lsl 1 in
   let imm = imm_12 lor imm_11 lor imm_10_5 lor imm_4_1 in
-  let imm = (imm lsl 19) asr 19 in
+  let imm = sign_extend_13 (Int32.of_int imm) in
   { t with
     t_rs1 = unpack_field w 15 5
   ; t_rs2 = unpack_field w 20 5
-  ; t_imm = Int32.of_int imm }
+  ; t_imm = imm }
 
 let from w =
   let op = unpack_operation w in
@@ -354,15 +242,17 @@ let from w =
   (* I-type instructions *)
   | ADDI | SLTI | SLTIU | ANDI
   | ORI | XORI | JALR | LH | LHU | LB | LBU | LW ->
+    let imm = sign_extend_12 (Int32.of_int (u 20 12)) in
     { t with
       t_rd = u 7 5
     ; t_rs1 = u 15 5
-    ; t_imm = Int32.of_int (u 20 12) }
+    ; t_imm = imm }
   | SLLI | SRLI | SRAI ->
+    let imm = sign_extend_12 (Int32.of_int (u 20 12)) in
     { t with
       t_rd = u 7 5
     ; t_rs1 = u 15 5
-    ; t_imm = Int32.of_int (u 20 5) }
+    ; t_imm = imm }
   | ECALL | EBREAK ->
     { t with t_rd = 0; t_rs1 = 0; t_imm = 0l }
   | FENCE ->
@@ -380,9 +270,10 @@ let from w =
     ; t_rs2 = u 20 5 }
   (* U-type instructions *)
   | LUI | AUIPC ->
+    let imm = sign_extend_20 (Int32.of_int (u 12 20)) in
     { t with
       t_rd = u 7 5
-    ; t_imm = Int32.of_int (u 12 20) }
+    ; t_imm = imm }
   (* J-type instruction *)
   | JAL ->
     { t with

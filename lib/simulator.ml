@@ -16,26 +16,13 @@ type t =
 
 let (+) = Int32.add
 
+let bump_pc t = { t with pc = Int32.add 4l t.pc }
+
 let sign_extend_8 x =
   let open Int32 in
   let x = logand x 0xffl in
   if logand x 0x80l <> 0l then
     logor x (lognot 0xffl)
-  else x
-
-let sign_extend_12 x =
-  let open Int32 in
-  let x = logand x 0xfffl in
-  if logand x 0x800l <> 0l then
-    logor x (lognot 0xfffl)
-  else
-    x
-
-let sign_extend_13 x =
-  let open Int32 in
-  let x = logand x 0x1fffl in
-  if logand x 0x1000l <> 0l then
-    logor x (lognot 0x1fffl)
   else x
 
 let sign_extend_16 x =
@@ -45,25 +32,13 @@ let sign_extend_16 x =
     logor x (lognot 0xffffl)
   else x
 
-let sign_extend_20 x =
-  let open Int32 in
-  let x = logand x 0xfffffl in
-  if logand x 0x80000l <> 0l then
-    logor x (lognot 0xfffffl)
-  else
-    x
-
-let bump_pc t = { t with pc = Int32.add 4l t.pc }
-
 let step_addi t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst ((Registers.get r src) + imm) }
 
 let step_slti t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst (
           if Registers.get r src < imm then 1l else 0l
@@ -71,7 +46,6 @@ let step_slti t dst src imm =
 
 let step_sltiu t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst (
           if Int32.unsigned_compare (Registers.get r src) imm < 0 then 1l else 0l
@@ -79,19 +53,16 @@ let step_sltiu t dst src imm =
 
 let step_andi t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst (Int32.logand (Registers.get r src) imm) }
 
 let step_ori t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst (Int32.logor (Registers.get r src) imm) }
 
 let step_xori t dst src imm =
   let { r ; _ } = t in
-  let imm = sign_extend_12 imm in
   bump_pc
     { t with r = Registers.update r dst (Int32.logxor (Registers.get r src) imm) }
 
@@ -118,7 +89,6 @@ let step_srai t dst src imm =
 
 let step_jalr t dst src imm =
   let { r ; pc ; _ } = t in
-  let imm = sign_extend_12 imm in
   let target = Int32.add (Registers.get r src) imm in
   let target = Int32.logand target (Int32.lognot 1l) in
   { t with
@@ -127,35 +97,30 @@ let step_jalr t dst src imm =
 
 let step_lw t dst src imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_word b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lh t dst src imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = sign_extend_16 (Memory.load_halfword b addr) in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lhu t dst src imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_halfword_unsigned b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lb t dst src imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = sign_extend_8 (Memory.load_byte b addr) in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lbu t dst src imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src) imm in
   let value = Memory.load_byte_unsigned b addr in
   bump_pc { t with r = Registers.update r dst value }
@@ -243,7 +208,6 @@ let step_jal t dst imm =
 
 let step_sw t src1 src2 imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Registers.get r src2 in
   Memory.store_word b addr value;
@@ -251,7 +215,6 @@ let step_sw t src1 src2 imm =
 
 let step_sh t src1 src2 imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Int32.logand (Registers.get r src2) 0xffffl in
   Memory.store_halfword b addr value;
@@ -259,44 +222,37 @@ let step_sh t src1 src2 imm =
 
 let step_sb t src1 src2 imm =
   let { r ; b ; _ } = t in
-  let imm = sign_extend_12 imm in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Int32.logand (Registers.get r src2) 0xffl in
   Memory.store_byte b addr value;
   bump_pc t
 
 let step_beq t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.eq r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bne t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if not (Registers.eq r src1 src2) then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_blt t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r;_ } = t in
   if Registers.lt r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bltu t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.ltu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bge t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.gte r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
 
 let step_bgeu t src1 src2 imm =
-  let imm = sign_extend_13 imm in
   let { pc; r; _ } = t in
   if Registers.gteu r src1 src2 then { t with pc = Int32.add pc imm }
   else bump_pc t
