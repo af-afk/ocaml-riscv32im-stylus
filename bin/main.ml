@@ -19,14 +19,12 @@ module Cycle_detection = struct
           failwith "Cycle detected!"
         )
         else (key, count + 1) :: rest
-      | item :: rest -> item :: update_list rest
-    in
+      | item :: rest -> item :: update_list rest in
     let updated = update_list t in
     let rec take n = function
       | [] -> []
       | x :: xs when n > 0 -> x :: take (n - 1) xs
-      | _ -> []
-    in
+      | _ -> [] in
     take 10 updated
 end
 
@@ -63,7 +61,7 @@ let fmt_stderr = Format.err_formatter
 
 let () =
   let mem, stack_top, pc = Memory.of_path (Array.get Sys.argv 1) in
-  let registers = { Registers.empty_spike with t_r_sp = stack_top } in
+  let registers = { Registers.empty_spike with t_r_sp = Int32.of_int stack_top } in
   let module Circ_registers = CIRCULAR_BUFFER(Registers) in
   let module Circ_words = CIRCULAR_BUFFER(struct
       include Int32
@@ -85,13 +83,14 @@ let () =
   let cycles = ref Cycle_detection.empty in
   let print_cleanup _ = (
     Simulator.pp fmt_stderr !sim;
-    Format.fprintf fmt_stderr "\nCYCLE DETECTION:";
+    (* TODO make cleaner *)
+    Format.fprintf fmt_stderr "@.CYCLE DETECTION:";
     Cycle_detection.pp fmt_stderr !cycles;
-    Format.fprintf fmt_stderr "\nREGISTERS CIRCULAR BUFFER:";
+    Format.fprintf fmt_stderr "@.REGISTERS CIRCULAR BUFFER:";
     Circ_registers.pp fmt_stderr circ_registers;
-    Format.fprintf fmt_stderr "\nWORDS CIRCULAR BUFFER:";
+    Format.fprintf fmt_stderr "@.WORDS CIRCULAR BUFFER:";
     Circ_words.pp fmt_stderr circ_words;
-    Format.fprintf fmt_stderr "\nLIFTED CIRCULAR BUFFER BUFFER:";
+    Format.fprintf fmt_stderr "@.LIFTED CIRCULAR BUFFER BUFFER:";
     Circ_lifted.pp fmt_stderr circ_lifted;
     Format.pp_force_newline fmt_stderr ()
   ) in

@@ -28,7 +28,7 @@ type t =
   ; t_r_a2: int32 ; t_r_a3: int32 ; t_r_a4: int32
   ; t_r_a5: int32 ; t_r_a6: int32
   ; t_r_a7: int32 (* Also the ECALL number *) }
-[@@deriving show, eq, hash, compare, sexp]
+[@@deriving show, eq, hash, compare, sexp, qcheck2]
 
 let empty =
   { t_r_zero = 0l; t_r_ra = 0l; t_r_sp = 0l; t_r_gp = 0l; t_r_tp = 0l
@@ -57,7 +57,7 @@ type reg =
   (* Argument/return registers *)
   | `A0 | `A1 | `A2 | `A3 | `A4 | `A5 | `A6
   | `A7  (* A7 also ECALL number *) ]
-[@@deriving eq, sexp, compare, hash, enum]
+[@@deriving eq, sexp, compare, hash, qcheck2]
 
 let pp_reg fmt x = Format.fprintf fmt "%s" (match x with
     | `Zero -> "zero"
@@ -73,6 +73,19 @@ let pp_reg fmt x = Format.fprintf fmt "%s" (match x with
     | `A0 -> "a0" | `A1 -> "a1" | `A2 -> "a2" | `A3 -> "a3"
     | `A4 -> "a4" | `A5 -> "a5" | `A6 -> "a6" | `A7 -> "a7"
 )
+
+let to_int = function
+  | `Zero -> 0  | `Ra -> 1    | `Sp -> 2
+  | `Gp -> 3    | `Tp -> 4    | `T0 -> 5
+  | `T1 -> 6    | `T2 -> 7    | `S0 -> 8
+  | `S1 -> 9    | `A0 -> 10   | `A1 -> 11
+  | `A2 -> 12   | `A3 -> 13   | `A4 -> 14
+  | `A5 -> 15   | `A6 -> 16   | `A7 -> 17
+  | `S2 -> 18   | `S3 -> 19   | `S4 -> 20
+  | `S5 -> 21   | `S6 -> 22   | `S7 -> 23
+  | `S8 -> 24   | `S9 -> 25   | `S10 -> 26
+  | `S11 -> 27  | `T3 -> 28   | `T4 -> 29
+  | `T5 -> 30   | `T6 -> 31
 
 let of_int = function
   |  0 -> `Zero |  1 -> `Ra   |  2 -> `Sp

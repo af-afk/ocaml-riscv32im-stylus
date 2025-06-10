@@ -65,6 +65,15 @@ type t =
   | SLL
   | SRL
   | SRA
+  (* ~~~ MULTIPLICATION INSTRUCTIONS ~~~ *)
+  | MUL
+  | MULH
+  | MULHSU
+  | MULHU
+  | DIV
+  | DIVU
+  | REM
+  | REMU
   (* ~~~ CONTROL TRANSFER INSTRUCTIONS ~~~ *)
   (**
    * JAL performs an unconditional jump, sign-extending the offset and
@@ -140,4 +149,86 @@ type t =
   | ECALL
   (** Cause a debugger break to the environment. *)
   | EBREAK
-[@@deriving eq, sexp, show]
+[@@deriving eq, sexp, show, qcheck2]
+
+(* ~~~ INTERMEDIATE OPERATIONS ~~~ *)
+
+let mask_opcode_imm = 0x13
+
+let mask_funct3_addi = 0
+let mask_funct3_slti = 0x2
+let mask_funct3_sltiu = 0x3
+let mask_funct3_andi = 0x7
+let mask_funct3_ori = 0x6
+let mask_funct3_xori = 0x4
+let mask_funct3_slli = 0x1
+
+(* SRLI and SRAI differ in that to decode these two, funct7 must be consulted. *)
+let mask_funct3_srli_and_srai = 0x5
+
+let mask_funct7_srai = 0x20
+
+let mask_opcode_lui = 0x37
+let mask_opcode_auipc = 0x17
+
+(* ~~~ INTEGER OPERATIONS ~~~ *)
+
+let mask_opcode_op = 0x33
+
+(* ADD and SUB need to be checked using funct7. *)
+let mask_funct3_add_and_sub = 0
+let mask_funct3_and = 0x7
+let mask_funct3_or = 0x6
+let mask_funct3_xor = 0x4
+let mask_funct3_sll = 0x1
+(* Use funct7 to decode this. *)
+let mask_funct3_srl_and_sra = 0x5
+
+let mask_funct7_sra = 0x20
+let mask_funct7_sub = 0x20
+let mask_funct7_mul = 0x1
+let mask_funct7_mulh = 0x1
+let mask_funct7_mulhsu = 01
+let mask_funct7_mulhu = 0x1
+let mask_funct7_div = 0x1
+let mask_funct7_divu = 0x1
+let mask_funct7_rem = 0x1
+let mask_funct7_remu = 0x1
+
+(* ~~~ CONTROL TRANSFER OPERATIONS ~~~ *)
+
+let mask_opcode_jal = 0x6f
+let mask_opcode_jalr = 0x67
+
+let mask_opcode_branch = 0x63
+
+let mask_funct3_beq = 0
+let mask_funct3_bne = 0x1
+let mask_funct3_blt = 0x4
+let mask_funct3_bltu = 0x6
+let mask_funct3_bge = 0x5
+let mask_funct3_bgeu = 0x7
+
+(* ~~~ LOAD AND STORE OPERATIONS ~~~ *)
+
+let mask_opcode_load = 0x3
+let mask_opcode_store = 0x23
+
+let mask_funct3_lb_and_sb = 0
+let mask_funct3_lh = 0x1
+let mask_funct3_lhu = 0x5
+let mask_funct3_lw = 0x2
+let mask_funct3_lbu = 0x4
+let mask_funct3_sw = 0x2
+let mask_funct3_sh = 0x1
+
+(* ~~~ MEMORY ORDERING INSTRUCTIONS ~~~ *)
+
+let mask_opcode_fence = 0xf
+
+(* ~~~ ENVIRONMENT CALLING INSTRUCTIONS ~~~ *)
+
+let mask_opcode_system = 0x73
+
+let mask_funct12_ecall = 0
+let mask_funct12_ebreak = 1

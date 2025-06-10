@@ -1,6 +1,6 @@
 
 module Word = struct
-  type t = int32 * int32 * int32 * int32 [@@deriving show]
+  type t = int32 * int32 * int32 * int32 [@@deriving show, qcheck2]
 
   let zero = 0l, 0l, 0l, 0l
 
@@ -75,9 +75,14 @@ module Storage = struct
         Format.fprintf fmt "@ @[<hov 2>%a =>@ %a;@]" Word.pp k pp_val v
       ) map;
     Format.fprintf fmt "@ }@]"
+
+  let gen value_gen =
+    let open QCheck2.Gen in
+    list_size (int_range 0 100) (pair Word.gen value_gen)
+    |> map (List.fold_left (fun m (k, v) -> add k v m) empty)
 end
 
-type t = Word.t Storage.t [@@deriving show]
+type t = Word.t Storage.t [@@deriving show, qcheck2]
 
 let empty = Storage.empty
 

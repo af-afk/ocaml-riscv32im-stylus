@@ -12,7 +12,7 @@ type t =
   ; cd_b: Calldata.t
   ; rd_b: Calldata.t
   ; pc: int32 }
-[@@deriving show, make]
+[@@deriving show, make, qcheck2]
 
 let (+) = Int32.add
 
@@ -31,6 +31,11 @@ let sign_extend_16 x =
   if logand x 0x8000l <> 0l then
     logor x (lognot 0xffffl)
   else x
+
+[@@inline always]
+let to_int x = match Int32.unsigned_to_int x with
+  | Some v -> v
+  | None -> failwith "Bad int conversion"
 
 let step_addi t dst src imm =
   let { r ; _ } = t in
@@ -71,21 +76,21 @@ let step_slli t dst src imm =
   let bits = Int32.logand imm 0x1fl in
   bump_pc
     { t with r = Registers.update r dst (
-          Int32.shift_left (Registers.get r src) (Int32.to_int bits)) }
+          Int32.shift_left (Registers.get r src) (to_int bits)) }
 
 let step_srli t dst src imm =
   let { r ; _ } = t in
   let bits = Int32.logand imm 0x1fl in
   bump_pc
     { t with r = Registers.update r dst (
-          Int32.shift_right_logical (Registers.get r src) (Int32.to_int bits)) }
+          Int32.shift_right_logical (Registers.get r src) (to_int bits)) }
 
 let step_srai t dst src imm =
   let { r ; _ } = t in
   let bits = Int32.logand imm 0x1fl in
   bump_pc
     { t with r = Registers.update r dst (
-          Int32.shift_right (Registers.get r src) (Int32.to_int bits)) }
+          Int32.shift_right (Registers.get r src) (to_int bits)) }
 
 let step_jalr t dst src imm =
   let { r ; pc ; _ } = t in
@@ -98,31 +103,31 @@ let step_jalr t dst src imm =
 let step_lw t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = Memory.load_word b addr in
+  let value = Memory.load_word_from_sim b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lh t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = sign_extend_16 (Memory.load_halfword b addr) in
+  let value = sign_extend_16 (Memory.load_halfword_from_sim b addr) in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lhu t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = Memory.load_halfword_unsigned b addr in
+  let value = Memory.load_halfword_unsigned_from_sim b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lb t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = sign_extend_8 (Memory.load_byte b addr) in
+  let value = sign_extend_8 (Memory.load_byte_sim b addr) in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lbu t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = Memory.load_byte_unsigned b addr in
+  let value = Memory.load_byte_unsigned_sim b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_add t dst src1 src2 =
@@ -170,21 +175,21 @@ let step_xor t dst src1 src2 =
 
 let step_sll t dst src1 src2 =
   let { r ; _ } = t in
-  let shamt = Int32.to_int (Int32.logand (Registers.get r src2) 0x1fl) in
+  let shamt = to_int (Int32.logand (Registers.get r src2) 0x1fl) in
   bump_pc
     { t with r = Registers.update r dst (
           Int32.shift_left (Registers.get r src1) shamt) }
 
 let step_srl t dst src1 src2 =
   let { r ; _ } = t in
-  let shamt = Int32.to_int (Int32.logand (Registers.get r src2) 0x1fl) in
+  let shamt = to_int (Int32.logand (Registers.get r src2) 0x1fl) in
   bump_pc
     { t with r = Registers.update r dst (
           Int32.shift_right_logical (Registers.get r src1) shamt) }
 
 let step_sra t dst src1 src2 =
   let { r ; _ } = t in
-  let shamt = Int32.to_int (Int32.logand (Registers.get r src2) 0x1fl) in
+  let shamt = to_int (Int32.logand (Registers.get r src2) 0x1fl) in
   bump_pc
     { t with r = Registers.update r dst (
           Int32.shift_right (Registers.get r src1) shamt) }
@@ -208,23 +213,24 @@ let step_jal t dst imm =
 
 let step_sw t src1 src2 imm =
   let { r ; b ; _ } = t in
-  let addr = Int32.add (Registers.get r src1) imm in
+  let base_addr = Registers.get r src1 in
+  let addr = Int32.add base_addr imm in
   let value = Registers.get r src2 in
-  Memory.store_word b addr value;
+  Memory.store_word_sim b addr value;
   bump_pc t
 
 let step_sh t src1 src2 imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Int32.logand (Registers.get r src2) 0xffffl in
-  Memory.store_halfword b addr value;
+  Memory.store_halfword_sim b addr value;
   bump_pc t
 
 let step_sb t src1 src2 imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src1) imm in
   let value = Int32.logand (Registers.get r src2) 0xffl in
-  Memory.store_byte b addr value;
+  Memory.store_byte_sim b addr value;
   bump_pc t
 
 let step_beq t src1 src2 imm =
@@ -276,7 +282,7 @@ let ecall_ethereum_output_no = 4l
 
 let ecall_log fmt t from length =
   let { b; _ } = t in
-  Format.fprintf fmt "%s" (Memory.load_into_str b from length);
+  Format.fprintf fmt "%s" (Memory.load_into_str_sim b from length);
   Format.pp_force_newline fmt ();
   t
 
@@ -377,6 +383,10 @@ let step_lifted fmt t f =
   let open Lifted in
   let apply_i { i_typ_dst; i_typ_src; i_typ_imm } f =
     f t i_typ_dst i_typ_src i_typ_imm in
+  let apply_i_sft { i_typ_sft_dst; i_typ_sft_src; i_typ_sft_imm } f =
+    f t i_typ_sft_dst i_typ_sft_src i_typ_sft_imm in
+  let apply_i_sys { i_typ_sys_dst; i_typ_sys_src; i_typ_sys_imm } f =
+    f t i_typ_sys_dst i_typ_sys_src i_typ_sys_imm in
   let apply_r { r_typ_dst; r_typ_src1; r_typ_src2 } f =
     f t r_typ_dst r_typ_src1 r_typ_src2 in
   let apply_u { u_typ_dst; u_typ_imm } f =
@@ -395,9 +405,9 @@ let step_lifted fmt t f =
   | Andi f -> apply_i f step_andi
   | Ori f -> apply_i f step_ori
   | Xori f -> apply_i f step_xori
-  | Slli f -> apply_i f step_slli
-  | Srli f -> apply_i f step_srli
-  | Srai f -> apply_i f step_srai
+  | Slli f -> apply_i_sft f step_slli
+  | Srli f -> apply_i_sft f step_srli
+  | Srai f -> apply_i_sft f step_srai
   | Jalr f -> apply_i f step_jalr
   | Lw f -> apply_i f step_lw
   | Lh f -> apply_i f step_lh
@@ -405,8 +415,8 @@ let step_lifted fmt t f =
   | Lb f -> apply_i f step_lb
   | Lbu f -> apply_i f step_lbu
   | Fence f -> apply_i f step_fence
-  | Ecall f -> apply_i f (step_ecall fmt)
-  | Ebreak f -> apply_i f step_ebreak
+  | Ecall f -> apply_i_sys f (step_ecall fmt)
+  | Ebreak f -> apply_i_sys f step_ebreak
   (* R-type *)
   | Add f -> apply_r f step_add
   | Sub f -> apply_r f step_sub
@@ -447,8 +457,8 @@ let id x = x
 
 let step ?(before_lift = id) ?(after_lift = id) fmt t =
   let { b ; pc ; _ } = t in
-  let word = before_lift (Memory.load_word b pc) in
-  let word_int = Int32.to_int word in
+  let word = before_lift (Memory.load_word_from_sim b pc) in
+  let word_int = to_int word in
   let instr =
     try after_lift (Lifted.from_word pc word_int) with err -> (
         pp fmt t;

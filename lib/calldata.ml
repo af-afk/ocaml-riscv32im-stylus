@@ -1,6 +1,9 @@
 
 type t = int Array.t
 
+let gen =
+  QCheck2.Gen.(array_size (int_range 0 100) int)
+
 let empty: t = [||]
 
 let pp fmt arr =

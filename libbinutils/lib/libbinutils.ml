@@ -33,11 +33,12 @@ let ($$) g f x = g (f x)
 
 (* This should be fine to convert since we're in a 32 bit machine! *)
 
-let get_section_size =
-  Int32.of_int $$ Unsigned.ULong.to_int $$ section_size
+let get_section_size = Unsigned.ULong.to_int $$ section_size
 
-let get_section_vma =
-  Int32.of_int $$ Unsigned.ULong.to_int $$ section_vma
+let get_section_vma sect =
+  let vma_ulong = section_vma sect in
+  let result = Unsigned.ULong.to_int vma_ulong in
+  result
 
 module Perms = struct
   type t =
@@ -108,5 +109,5 @@ let asymbols_seq bfd =
 
 let asymbol_name sym = getf !@sym Asymbol.name
 
-let asymbol_value =
-  Unsigned.UInt32.to_int $$ Functions.bfd_asymbol_value
+let asymbol_value sym =
+  Unsigned.UInt32.to_int (Functions.bfd_asymbol_value sym)

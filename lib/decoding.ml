@@ -66,76 +66,6 @@ let empty =
   ; rs2 = 0
   ; imm = 0l }
 
-(* ~~~ INTERMEDIATE OPERATIONS ~~~ *)
-
-let mask_opcode_imm = 0x13
-
-let mask_funct3_addi = 0
-let mask_funct3_slti = 0x2
-let mask_funct3_sltiu = 0x3
-let mask_funct3_andi = 0x7
-let mask_funct3_ori = 0x6
-let mask_funct3_xori = 0x4
-let mask_funct3_slli = 0x1
-(* SRLI and SRAI differ in that to decode these two, funct7 must be consulted. *)
-let mask_funct3_srli_and_srai = 0x5
-
-let mask_funct7_srai = 0x20
-
-let mask_opcode_lui = 0x37
-let mask_opcode_auipc = 0x17
-
-(* ~~~ INTEGER OPERATIONS ~~~ *)
-
-let mask_opcode_op = 0x33
-
-(* ADD and SUB need to be checked using funct7. *)
-let mask_funct3_add_and_sub = 0
-let mask_funct3_and = 0x7
-let mask_funct3_or = 0x6
-let mask_funct3_xor = 0x4
-let mask_funct3_sll = 0x1
-(* Use funct7 to decode this. *)
-let mask_funct3_srl_and_sra = 0x5
-
-let mask_funct7_sra = 0x20
-let mask_funct7_sub = 0x20
-
-(* ~~~ CONTROL TRANSFER OPERATIONS ~~~ *)
-
-let mask_opcode_jal = 0x6f
-let mask_opcode_jalr = 0x67
-
-let mask_opcode_branch = 0x63
-
-let mask_funct3_beq = 0
-let mask_funct3_bne = 0x1
-let mask_funct3_blt = 0x4
-let mask_funct3_bltu = 0x6
-let mask_funct3_bge = 0x5
-let mask_funct3_bgeu = 0x7
-
-(* ~~~ LOAD AND STORE OPERATIONS ~~~ *)
-
-let mask_opcode_load = 0x3
-let mask_opcode_store = 0x23
-
-let mask_funct3_lb_and_sb = 0
-let mask_funct3_lh = 0x1
-let mask_funct3_lhu = 0x5
-let mask_funct3_lw = 0x2
-let mask_funct3_lbu = 0x4
-let mask_funct3_sw = 0x2
-let mask_funct3_sh = 0x1
-
-(* ~~~ MEMORY ORDERING INSTRUCTIONS ~~~ *)
-
-let mask_opcode_fence = 0xf
-
-(* ~~~ ENVIRONMENT CALLING INSTRUCTIONS ~~~ *)
-
-let mask_opcode_system = 0x73
-
 let mask x = (1 lsl x) - 1
 
 let unpack_field w i l = (w lsr i) land (mask l)
@@ -162,15 +92,23 @@ let unpack_operation w =
   | op when op = mask_opcode_op -> (* OP *)
     (match funct3 with
      | f when f = mask_funct3_add_and_sub && funct7 = mask_funct7_sub -> SUB
+     | f when f = mask_funct3_add_and_sub && funct7 = mask_funct7_mul -> MUL
      | f when f = mask_funct3_add_and_sub -> ADD
+     | f when f = mask_funct3_sll && funct7 = mask_funct7_mulh -> MULH
      | f when f = mask_funct3_sll -> SLL
-     | f when f = mask_funct3_srl_and_sra && funct7 = mask_funct7_sra -> SRA
-     | f when f = mask_funct3_srl_and_sra -> SRL
+     | f when f = mask_funct3_slti && funct7 = mask_funct7_mulhsu -> MULHSU
      | f when f = mask_funct3_slti -> SLT
+     | f when f = mask_funct3_sltiu && funct7 = mask_funct7_mulhu -> MULHU
      | f when f = mask_funct3_sltiu -> SLTU
-     | f when f = mask_funct3_and -> AND
-     | f when f = mask_funct3_or -> OR
+     | f when f = mask_funct3_xor && funct7 = mask_funct7_div -> DIV
      | f when f = mask_funct3_xor -> XOR
+     | f when f = mask_funct3_srl_and_sra && funct7 = mask_funct7_sra -> SRA
+     | f when f = mask_funct3_srl_and_sra && funct7 = mask_funct7_divu -> DIVU
+     | f when f = mask_funct3_srl_and_sra -> SRL
+     | f when f = mask_funct3_or && funct7 = mask_funct7_rem -> REM
+     | f when f = mask_funct3_or -> OR
+     | f when f = mask_funct3_and && funct7 = mask_funct7_remu -> REMU
+     | f when f = mask_funct3_and -> AND
      | _ -> invalid_arg "unknown OP variant"
     )
   | op when op = mask_opcode_load -> (* LOAD *)
@@ -196,20 +134,19 @@ let unpack_operation w =
   | op when op = mask_opcode_fence -> FENCE
   | op when op = mask_opcode_branch -> (* BRANCH *)
     (match funct3 with
-    | f when f = mask_funct3_beq -> BEQ
-    | f when f = mask_funct3_bne -> BNE
-    | f when f = mask_funct3_blt -> BLT
-    | f when f = mask_funct3_bltu -> BLTU
-    | f when f = mask_funct3_bge -> BGE
-    | f when f = mask_funct3_bgeu -> BGEU
-    | _ -> invalid_arg "unknown BRANCH variant"
-  )
+     | f when f = mask_funct3_beq -> BEQ
+     | f when f = mask_funct3_bne -> BNE
+     | f when f = mask_funct3_blt -> BLT
+     | f when f = mask_funct3_bltu -> BLTU
+     | f when f = mask_funct3_bge -> BGE
+     | f when f = mask_funct3_bgeu -> BGEU
+     | _ -> invalid_arg "unknown BRANCH variant"
+    )
   | op when op = mask_opcode_system ->
     let imm = unpack_field w 20 12 in
     if funct3 = 0 && imm = 0 then ECALL
-    else if funct3 = 0 && imm = 1 then EBREAK
-    else invalid_arg "unknown system"
-  | _ -> invalid_arg "unknown op"
+    else EBREAK
+  | _ -> invalid_arg (Printf.sprintf "unknown op: %x" w)
 
 let decode_jal_imm w =
   let open Int32 in
@@ -256,29 +193,30 @@ let from loc w =
     ; rs1 = u 15 5
     ; imm = imm }
   | SLLI | SRLI | SRAI ->
-    let imm = sign_extend_12 (Int32.of_int (u 20 12)) in
     { t with
       rd = u 7 5
     ; rs1 = u 15 5
-    ; imm = imm }
-  | ECALL | EBREAK ->
-    { t with rd = 0; rs1 = 0; imm = 0l }
+    ; imm = Int32.of_int (u 20 5) }
+  | ECALL | EBREAK -> { t with rd = 0; rs1 = 0; imm = 0l }
   | FENCE ->
+    let fence_bits = ((u 28 4) lsl 8) lor ((u 24 4) lsl 4) lor (u 20 4) in
+    let imm = sign_extend_12 (Int32.of_int fence_bits) in  (* Sign extend! *)
     { t with
       rd = u 7 5;
       rs1 = u 15 5;
-      imm = Int32.of_int (((u 28 4) lsl 8) lor ((u 24 4) lsl 4) lor (u 20 4))
+      imm = imm
     }
   (* R-type instructions *)
   | ADD | SUB | SLT | SLTU | AND | OR | XOR
-  | SLL | SRL | SRA ->
+  | SLL | SRL | SRA | MUL | MULH | MULHSU
+  | MULHU | DIV | DIVU | REM | REMU ->
     { t with
       rd = u 7 5
     ; rs1 = u 15 5
     ; rs2 = u 20 5 }
   (* U-type instructions *)
   | LUI | AUIPC ->
-    let imm = sign_extend_20 (Int32.of_int (u 12 20)) in
+    let imm = Int32.(shift_left (of_int (u 12 20)) 12) in
     { t with
       rd = u 7 5
     ; imm = imm }

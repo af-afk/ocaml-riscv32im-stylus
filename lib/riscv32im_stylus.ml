@@ -7,3 +7,4 @@ module Calldata = Calldata
 module Lifted = Lifted
 module Operation = Operation
 module Decoding = Decoding
+module Encoding = Encoding
