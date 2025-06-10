@@ -63,15 +63,17 @@ let () =
   let mem, stack_top, pc = Memory.of_path (Array.get Sys.argv 1) in
   let registers = { Registers.empty_spike with t_r_sp = Int32.of_int stack_top } in
   let module Circ_registers = CIRCULAR_BUFFER(Registers) in
-  let module Circ_words = CIRCULAR_BUFFER(struct
+  let module Circ_hex = CIRCULAR_BUFFER(struct
       include Int32
       let empty = 0l
-      let pp fmt t = Format.fprintf fmt "%ld" t
+      let pp fmt t = Format.fprintf fmt "%lx" t
     end) in
   let module Circ_lifted = CIRCULAR_BUFFER(Lifted) in
   let circ_registers = Circ_registers.create () in
-  let circ_words = Circ_words.create () in
+  let circ_words = Circ_hex.create () in
   let circ_lifted = Circ_lifted.create () in
+  let circ_pc = Circ_hex.create () in
+  let count = ref 0 in
   let sim = ref (
       Simulator.make
         ~b:mem
@@ -84,27 +86,31 @@ let () =
   let print_cleanup _ = (
     Simulator.pp fmt_stderr !sim;
     (* TODO make cleaner *)
-    Format.fprintf fmt_stderr "@.CYCLE DETECTION:";
-    Cycle_detection.pp fmt_stderr !cycles;
-    Format.fprintf fmt_stderr "@.REGISTERS CIRCULAR BUFFER:";
-    Circ_registers.pp fmt_stderr circ_registers;
-    Format.fprintf fmt_stderr "@.WORDS CIRCULAR BUFFER:";
-    Circ_words.pp fmt_stderr circ_words;
-    Format.fprintf fmt_stderr "@.LIFTED CIRCULAR BUFFER BUFFER:";
-    Circ_lifted.pp fmt_stderr circ_lifted;
-    Format.pp_force_newline fmt_stderr ()
+    Format.fprintf fmt_stderr "@.CYCLE DETECTION: %a"
+      Cycle_detection.pp !cycles;
+    Format.fprintf fmt_stderr "@.REGISTERS CIRCULAR BUFFER: %a"
+      Circ_registers.pp circ_registers;
+    Format.fprintf fmt_stderr "@.WORDS CIRCULAR BUFFER: %a"
+      Circ_hex.pp circ_words;
+    Format.fprintf fmt_stderr "@.LIFTED CIRCULAR BUFFER: %a"
+      Circ_lifted.pp circ_lifted;
+    Format.fprintf fmt_stderr "@.PC CIRCULAR BUFFER: %a"
+      Circ_hex.pp circ_pc;
+    Format.fprintf fmt_stderr "@.CURRENT STACK POINTER: %lx@.INSTRUCTION COUNT: %l@." !sim.pc !count;
   ) in
   Sys.set_signal Sys.sigusr1 (Sys.Signal_handle print_cleanup);
   try
     while true do
+      let Simulator.{ pc; r; _ } = !sim in
+      Circ_registers.push circ_registers r;
+      cycles := Cycle_detection.track !cycles pc r;
+      Circ_hex.push circ_pc pc;
       sim := Simulator.step
-          ~before_lift:(fun x -> Circ_words.push circ_words x; x)
+          ~before_lift:(fun x -> Circ_hex.push circ_words x; x)
           ~after_lift:(fun x -> Circ_lifted.push circ_lifted x; x)
           fmt_stderr
           !sim;
-      let Simulator.{ pc; r; _ } = !sim in
-      Circ_registers.push circ_registers r;
-      cycles := Cycle_detection.track !cycles pc r
+      incr count
     done
   with
     err ->

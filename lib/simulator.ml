@@ -202,8 +202,7 @@ let step_lui t dst imm =
 let step_auipc t dst imm =
   let { r ; pc ; _ } = t in
   bump_pc
-    { t with r = Registers.update r dst (
-          Int32.add pc (Int32.shift_left imm 12)) }
+    { t with r = Registers.update r dst (Int32.add pc imm) }
 
 let step_jal t dst imm =
   let { r ; pc ; _ } = t in
