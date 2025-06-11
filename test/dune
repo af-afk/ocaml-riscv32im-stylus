@@ -1,3 +1,9 @@
 (test
  (name test_riscv32im)
- (libraries riscv32im_stylus ounit2 qcheck-ounit qcheck-core qcheck-core.runner))
+ (libraries
+  riscv32im_stylus
+  ounit2
+  qcheck-ounit
+  qcheck-core
+  qcheck-core.runner)
+ (deps risc-hello-world))

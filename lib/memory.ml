@@ -1,11 +1,6 @@
 
 module Region = struct
-  open Bigarray
-
-  type arr = (int, int8_unsigned_elt, c_layout) Bigarray.Array1.t
-
-  let pp_arr _ _ = ()
-
+  type arr = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
   type t =
     { desc: string
     ; mem: arr
@@ -14,23 +9,23 @@ module Region = struct
     ; readable: bool
     ; writeable: bool
     ; executable: bool }
-  [@@deriving show]
 
-  let create ~desc ~base ~size ~readable ~writeable ~executable =
+  let create ?(readable = true) ?(writeable = true) ?(executable = true) ~desc ~base ~size () =
     { desc
-    ; mem = Array1.create Int8_unsigned C_layout size
+    ; mem =
+        Bigarray.Array1.create
+          Bigarray.Int8_unsigned
+          Bigarray.C_layout
+          size
     ; base
     ; size
     ; readable
     ; writeable
     ; executable }
 
-  let gen =
-    let open QCheck2.Gen in
-    map
-      (fun (desc, base, size, readable, writeable, executable) ->
-         create ~desc ~base ~size ~readable ~writeable ~executable)
-      (tup6 string int (int_range 0 1024) bool bool bool)
+  let pp fmt { desc ; base ; size ; readable ; writeable ; executable ; _ } =
+    Format.fprintf fmt "{ desc = %s; base = %x (0x%x); size = %d (0x%x); readable = %b; writeable = %b; executable = %b }"
+      desc base base size size readable writeable executable
 
   let to_seq_words { mem ; _ } =
     let module B = Bigarray.Array1 in
@@ -44,14 +39,37 @@ module Region = struct
         let b3 = get (i + 3) in
         Seq.Cons (b0 lor (b1 lsl 8) lor (b2 lsl 16) lor (b3 lsl 24), loop (i + 4)) in
     loop 0
+
+  let gen =
+    let open QCheck2.Gen in
+    let* desc = string in
+    let* size = int_range 4 1024 in
+    let* base = int_range 0 10000 in
+    return (create ~desc ~base ~size ())
 end
 
-type t = Region.t list [@@deriving show, qcheck2]
+type t = Region.t list [@@deriving show]
+
+let gen =
+  let open QCheck2.Gen in
+  let* regions = list_size (int_range 1 8) Region.gen in
+  let sorted =
+    List.sort
+      Region.(fun { base = a ; _ } { base = b ; _ } -> compare a b)
+      regions in
+  let rec make acc next_base = function
+    | [] -> return (List.rev acc)
+    | r :: rest ->
+      let new_region = Region.{ r with base = next_base } in
+      make (new_region :: acc) (next_base + r.size) rest in
+  make [] 0 sorted
 
 let ($$) g f x = g (f x)
 
 let of_path name =
-  let total_memory_size = 0x80000000 in (* 2GB *)
+  let ram_start = 0x80000000 in
+  let ram_size = 0x08000000 in (* 128 MB *)
+  let ram_end = ram_start + ram_size in
   let bfd = Libbinutils.open_obj name in
   let pc =
     match
@@ -60,70 +78,68 @@ let of_path name =
     with
     | Some sym -> Int32.of_int (Libbinutils.asymbol_value sym)
     | None -> invalid_arg "No symbol titled _start" in
+
   let sections =
     Libbinutils.asections_seq bfd |> Seq.filter_map (fun sect ->
         let name = Libbinutils.section_name sect in
         let vma = Libbinutils.get_section_vma sect in
+        let contents = Libbinutils.get_section_contents bfd sect 0 in
         let size = Libbinutils.get_section_size sect in
         let Libbinutils.Perms.{ alloc; load; readonly; code; data; rom; _ } =
           Libbinutils.section_perms sect in
-        if alloc then
-          Some (name, vma, size, load, readonly, code, data, rom)
+        if alloc && load && vma >= ram_start && vma < ram_end then
+          Some (
+            Region.
+              { desc = name
+              ; mem = contents
+              ; base = vma
+              ; size = size
+              ; readable = true
+              ; writeable = (not readonly) && (not rom)
+              ; executable = code && (not data) })
         else None
       ) |> List.of_seq in
-  (* Find the bounds of the program: *)
-  let program_start =
-    match sections with
-    | [] -> 0x80000000 (* Default if nothing found *)
-    | (_, vma, _, _, _, _, _, _) :: _ ->
-      sections
-      |> List.map (fun (_, vma, _, _, _, _, _, _) -> vma)
-      |> List.fold_left min vma in
-  (* Calculate total memory needed: from program start to 2GB *)
-  let memory_start = program_start in
-  let memory_end = memory_start + total_memory_size in
-  let total_size = memory_end - memory_start in
-  (* Create one large memory region. *)
-  let large_memory =
-    Bigarray.Array1.create Bigarray.Int8_unsigned Bigarray.C_layout total_size in
-  Bigarray.Array1.fill large_memory 0; (* Zero out the extra region *)
-  (* Load section contents into the appropriate offsets *)
-  List.iter (fun (name, vma, size, load, _, _, _, _) ->
-      if size > 0 then (
-        let offset = vma - memory_start in
-        if load then (
-          (* Load section contents from file *)
-          let section =
-            Libbinutils.asections_seq bfd
-            |> Seq.find (fun s -> Libbinutils.section_name s = name) in
-          match section with
-          | Some sect ->
-            let contents = Libbinutils.get_section_contents bfd sect 0 in
-            let src_len = Bigarray.Array1.dim contents in
-            let copy_len = min src_len size in
-            for i = 0 to copy_len - 1 do
-              large_memory.{offset + i} <- contents.{i}
-            done;
-          | None -> failwith "Could not find section"
-        )
-      )
-    ) sections;
-  let memory_region =
-  Region.
-                        { desc = "unified_memory"
-                        ; mem = large_memory
-                        ; base = memory_start
-                        ; size = total_size
-                        ; readable = true   (* Make everything readable *)
-                        ; writeable = true  (* Make everything writeable for simplicity *)
-                        ; executable = true (* Make everything executable for simplicity *)
-                        } in
+  let sorted_sections =
+    List.sort
+      Region.(fun { base = a; _ } { base = b ; _ } -> compare a b)
+      sections in
+  let rec fill_gaps acc current_addr = function
+    | [] ->
+      if current_addr < ram_end then
+        let gap_region = Region.create
+            ~desc:"ram_gap"
+            ~base:current_addr
+            ~size:(ram_end - current_addr)
+            ~readable:true
+            ~writeable:true
+            ~executable:true
+            () in
+        List.rev (gap_region :: acc)
+      else
+        List.rev acc
+    | section :: rest ->
+      let section_start = section.Region.base in
+      let section_end = section_start + section.size in
+      let acc_with_gap =
+        if current_addr < section_start then
+          let gap_region = Region.create
+              ~desc:"ram_gap"
+              ~base:current_addr
+              ~size:(section_start - current_addr)
+              ~readable:true
+              ~writeable:true
+              ~executable:true
+              () in
+          gap_region :: acc
+        else
+          acc in
+      let acc_with_section = section :: acc_with_gap in
+      fill_gaps acc_with_section section_end rest
+  in
 
-  (* Stack top at the end of memory, minus a small guard *)
-  let stack_guard = 0x1000 in (* 4KB guard *)
-  let stack_top = memory_end - stack_guard in
-
-  [memory_region], stack_top, pc
+  let all_regions = fill_gaps [] ram_start sorted_sections in
+  let stack_top = ram_end - 0x100 in
+  (all_regions), stack_top, pc
 
 [@@inline always]
 let convert_to_int x =
