@@ -1,10 +1,4 @@
 
-(*
- * Bringing it all together, we need to simulate the Lifted
- * representation using the Registers, and the B interface for our block
- * storage.
- *)
-
 type t =
   { r: Registers.t
   ; b: Memory.t
@@ -460,14 +454,15 @@ let step ?(before_lift = id) ?(after_lift = id) fmt t =
   let word_int = to_int word in
   let instr =
     try after_lift (Lifted.from_word pc word_int) with err -> (
-        pp fmt t;
-        Format.pp_force_newline fmt ();
-        Format.fprintf fmt "Loaded word: %ld, (%d)" word word_int;
-        Format.pp_force_newline fmt ();
+        Format.fprintf fmt "%a@.loaded word: %ld, (%d)@."
+          pp t
+          word
+          word_int;
         raise err
       ) in
   try step_lifted fmt t instr with err -> (
-      pp fmt t;
-      Lifted.pp fmt instr;
+      Format.fprintf fmt "Simulator: %a@.instruction: %a@."
+        pp t
+        Lifted.pp instr;
       raise err
     )
