@@ -13,7 +13,8 @@
   sexplib0
   libbinutils)
  (inline_tests)
- (instrumentation (backend mutaml))
+ (instrumentation
+  (backend mutaml))
  (preprocess
   (pps
    ppx_inline_test

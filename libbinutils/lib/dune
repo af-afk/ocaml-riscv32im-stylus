@@ -2,14 +2,17 @@
  (name libbinutils)
  (public_name libbinutils)
  (virtual_deps conf-binutils)
- (flags (:standard -w -9-27))
+ (flags
+  (:standard -w -9-27))
  (c_library_flags :standard -lbfd)
  (libraries unix ppx_deriving.show)
- (preprocess (pps ppx_inline_test ppx_deriving.show))
+ (preprocess
+  (pps ppx_inline_test ppx_deriving.show))
  (ctypes
   (external_library_name libbfd)
   (build_flags_resolver vendored)
-  (headers (include "bfd.h"))
+  (headers
+   (include "bfd.h"))
   (type_description
    (instance Types)
    (functor Type_description))
