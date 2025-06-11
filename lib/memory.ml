@@ -139,7 +139,7 @@ let of_path name =
 
   let all_regions = fill_gaps [] ram_start sorted_sections in
   let stack_top = ram_end - 0x100 in
-  (all_regions), stack_top, pc
+  bfd, (all_regions), stack_top, pc
 
 [@@inline always]
 let convert_to_int x =

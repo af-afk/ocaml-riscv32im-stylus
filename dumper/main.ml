@@ -2,7 +2,8 @@
 open Riscv32im_stylus
 
 let () =
-  let mem, _, _ = Memory.of_path (Array.get Sys.argv 1) in
+  let bfd, mem, _, _ = Memory.of_path (Array.get Sys.argv 1) in
+  at_exit (fun () -> Libbinutils.close bfd);
   let region = List.find (fun Memory.Region.{ desc ; _ } -> desc = ".text") mem in
   let Memory.Region.{ base ; _ } = region in
   let pc = ref base in

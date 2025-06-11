@@ -8,6 +8,7 @@ let print_hex_bigarray ba =
 let () =
   Libbinutils.init ();
   let bfd = Libbinutils.open_obj (Array.get Sys.argv 1) in
+  at_exit (fun () -> Libbinutils.close bfd);
   Libbinutils.asymbols_seq bfd |> Seq.iter (fun sym ->
     Printf.eprintf "sym: %s, loc: %d\n"
     (Libbinutils.asymbol_name sym)

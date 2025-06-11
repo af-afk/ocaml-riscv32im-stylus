@@ -77,9 +77,8 @@ let test_random_word_store_read_internal_conv =
        w = Memory.load_word_from_sim m addr
     )
 
-let test_reference_word_store_read_internal_conv f =
+let test_reference_word_store_read_internal_conv m =
   let open QCheck2 in
-  let m, _, _ = Memory.of_path f in
   let m = List.rev_map (fun t ->
       Memory.Region.{ t with readable = true ; writeable = true }) m in
   QCheck_ounit.to_ounit2_test @@ Test.make
@@ -109,10 +108,16 @@ let test_reference_word_store_read_internal_conv f =
 
 let () =
   let open OUnit2 in
+  let bfd1, risc_hello_world, _, _ = Memory.of_path "risc-hello-world" in
+  let bfd2, test_file, _, _ = Memory.of_path "test_riscv32im.exe" in
+  at_exit (fun () ->
+    Libbinutils.close bfd1;
+    Libbinutils.close bfd2
+  );
   run_test_tt_main (
     "tests" >:::[
       test_encode_decode
     ; test_random_byte_store_read_internal_conv
     ; test_random_word_store_read_internal_conv
-    ; test_reference_word_store_read_internal_conv "risc-hello-world"
-    ; test_reference_word_store_read_internal_conv "test_riscv32im.exe" ])
+    ; test_reference_word_store_read_internal_conv risc_hello_world
+    ; test_reference_word_store_read_internal_conv test_file ])

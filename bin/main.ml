@@ -60,7 +60,8 @@ end
 let fmt_stderr = Format.err_formatter
 
 let () =
-  let mem, stack_top, pc = Memory.of_path (Array.get Sys.argv 1) in
+  let bfd, mem, stack_top, pc = Memory.of_path (Array.get Sys.argv 1) in
+  at_exit (fun () -> Libbinutils.close bfd);
   let registers = { Registers.empty_spike with t_r_sp = Int32.of_int stack_top } in
   let module Circ_registers = CIRCULAR_BUFFER(Registers) in
   let module Circ_hex = CIRCULAR_BUFFER(struct
