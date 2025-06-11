@@ -15,6 +15,15 @@
  (name riscv32im_stylus)
  (synopsis
   "Simulates RISCV32IM, works with ELF, and has environment calling for Ethereum features.")
- (depends ocaml)
+ (depends
+  ocaml
+   ppx_deriving
+   ppx_hash
+   ppx_sexp_conv
+   ppx_hash
+   ppx_compare
+   sexplib0
+   conf-binutils
+   ctypes)
  (tags
   (riscv riscv32 riscv32im ocaml stylus ethereum)))
