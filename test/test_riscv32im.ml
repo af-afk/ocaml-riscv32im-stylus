@@ -1,7 +1,7 @@
 
 open Riscv32im_stylus
 
-let test_encode_decode =
+let encode_decode =
   let open QCheck2 in
   QCheck_ounit.to_ounit2_test @@ Test.make
     ~name:"encode/decode"
@@ -26,7 +26,7 @@ let gen_random_word m =
   let* word_val = int32 in
   return (addr, word_val, m)
 
-let test_random_byte_store_read_internal_conv =
+let random_byte_store_read =
   let open QCheck2 in
   QCheck_ounit.to_ounit2_test @@ Test.make
     ~name:"store byte/read byte"
@@ -50,7 +50,7 @@ let test_random_byte_store_read_internal_conv =
        b = Memory.load_byte_sim m addr
     )
 
-let test_random_word_store_read_internal_conv =
+let random_word_store_read =
   let open QCheck2 in
   QCheck_ounit.to_ounit2_test @@ Test.make
     ~name:"store word/read word"
@@ -77,7 +77,7 @@ let test_random_word_store_read_internal_conv =
        w = Memory.load_word_from_sim m addr
     )
 
-let test_reference_word_store_read_internal_conv m =
+let reference_word_store_read m =
   let open QCheck2 in
   let m = List.rev_map (fun t ->
       Memory.Region.{ t with readable = true ; writeable = true }) m in
@@ -108,7 +108,8 @@ let test_reference_word_store_read_internal_conv m =
 
 let () =
   let open OUnit2 in
-  let bfd1, risc_hello_world, _, _ = Memory.of_path "risc-hello-world" in
+  let open Test_opcodes in
+  let bfd1, risc_hello_world, stack_top, pc = Memory.of_path "risc-hello-world" in
   let bfd2, test_file, _, _ = Memory.of_path "test_riscv32im.exe" in
   at_exit (fun () ->
     Libbinutils.close bfd1;
@@ -116,8 +117,9 @@ let () =
   );
   run_test_tt_main (
     "tests" >:::[
-      test_encode_decode
-    ; test_random_byte_store_read_internal_conv
-    ; test_random_word_store_read_internal_conv
-    ; test_reference_word_store_read_internal_conv risc_hello_world
-    ; test_reference_word_store_read_internal_conv test_file ])
+      encode_decode
+    ; random_byte_store_read
+    ; random_word_store_read
+    ; reference_word_store_read risc_hello_world
+    ; reference_word_store_read test_file
+    ; should_simulate_program_ok risc_hello_world stack_top pc ])

@@ -308,7 +308,7 @@ let step_ecall fmt t _ _ _ =
       ecall_log fmt t (Registers.get r `A0) (Registers.get r `A1))
   | r -> failwith (Printf.sprintf "Bad register: %ld" r)
 
-let step_ebreak _ _ _ _ = failwith "BREAK"
+let step_ebreak _ _ _ _ =  Control.exit_ebreak ()
 
 let step_mul t dst src1 src2 =
   let { r ; _ } = t in
