@@ -1,11 +1,12 @@
 
 type t =
-  { r: Registers.t
-  ; b: Memory.t
-  ; e: Ethereum.t
-  ; cd_b: Calldata.t
-  ; rd_b: Calldata.t
-  ; pc: int32 }
+  { r: Registers.t [@default Registers.empty]
+  ; b: Memory.t [@default Memory.empty]
+  ; e: Ethereum.t [@default Ethereum.empty]
+  ; cd_b: Calldata.t [@default Calldata.empty]
+  ; rd_b: Calldata.t [@default Calldata.empty]
+  ; pc: int32 [@default 0l]
+  ; last_op: Lifted.t option [@default None]}
 [@@deriving show, make, qcheck2]
 
 let (+) = Int32.add
@@ -374,6 +375,7 @@ let step_remu t dst src1 src2 =
 
 let step_lifted fmt t f =
   let open Lifted in
+  let t = { t with last_op = Some f } in
   let apply_i { i_typ_dst; i_typ_src; i_typ_imm } f =
     f t i_typ_dst i_typ_src i_typ_imm in
   let apply_i_sft { i_typ_sft_dst; i_typ_sft_src; i_typ_sft_imm } f =

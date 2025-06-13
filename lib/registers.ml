@@ -96,6 +96,9 @@ let of_int = function
   | 27 -> `S11  | 28 -> `T3   | 29 -> `T4
   | 30 -> `T5   | 31 -> `T6   | _ -> invalid_arg "unknown register"
 
+let gen_reg_nonzero: reg QCheck2.Gen.t =
+  QCheck2.Gen.(map of_int (int_range 1 31))
+
 let of_int_opt x = try Some (of_int x) with Invalid_argument _ -> None
 
 let pp_reg_int_maybe fmt int =

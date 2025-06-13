@@ -75,14 +75,7 @@ let () =
   let circ_lifted = Circ_lifted.create () in
   let circ_pc = Circ_hex.create () in
   let count = ref 0 in
-  let sim = ref (
-      Simulator.make
-        ~b:mem
-        ~r:registers
-        ~pc
-        ~e:Ethereum.empty
-        ~cd_b:Calldata.empty
-        ~rd_b:Calldata.empty) in
+  let sim = ref (Simulator.make ~b:mem ~r:registers ~pc ()) in
   let cycles = ref Cycle_detection.empty in
   let print_cleanup _ = (
     Simulator.pp fmt_stderr !sim;

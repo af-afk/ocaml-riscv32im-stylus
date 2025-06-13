@@ -3,10 +3,11 @@ open Riscv32im_stylus
 
 open Storage
 
+open OUnit2
+
 let random_byte_store_read =
-  let open QCheck2 in
-  QCheck_ounit.to_ounit2_test @@ Test.make
-    ~name:"store byte/read byte"
+  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+    ~name:"Store byte/read byte"
     ~print:(fun (addr, w, m) ->
         let b = Int32.logand w 0xffl in
         let addr = Int32.of_int addr in
@@ -28,9 +29,8 @@ let random_byte_store_read =
     )
 
 let random_word_store_read =
-  let open QCheck2 in
-  QCheck_ounit.to_ounit2_test @@ Test.make
-    ~name:"store word/read word"
+  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+    ~name:"Store word/read word"
     ~print:(fun (addr, w, m) ->
         let addr = Int32.of_int addr in
         try
@@ -55,11 +55,10 @@ let random_word_store_read =
     )
 
 let reference_word_store_read m =
-  let open QCheck2 in
   let m = List.rev_map (fun t ->
       Memory.Region.{ t with readable = true ; writeable = true }) m in
-  QCheck_ounit.to_ounit2_test @@ Test.make
-    ~name:"test binary store word/read word"
+  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+    ~name:"Test binary store word/read word"
     ~print:(fun (addr, w, m) ->
         let addr = Int32.of_int addr in
         try
@@ -76,7 +75,7 @@ let reference_word_store_read m =
               Memory.pp m
           )
       )
-    (gen_random_word (Gen.return m))
+    (gen_random_word (QCheck2.Gen.return m))
     (fun (addr, w, m) ->
        let addr = Int32.of_int addr in
        Memory.store_word_sim m addr w;
@@ -84,9 +83,7 @@ let reference_word_store_read m =
     )
 
 let test risc_hello_world test_file =
-  let open OUnit2 in
-  "memory tests"
-  >:::[ random_byte_store_read
-      ; random_word_store_read
-      ; reference_word_store_read risc_hello_world
-      ; reference_word_store_read test_file ]
+  "Memory tests" >:::[ random_byte_store_read
+                     ; random_word_store_read
+                     ; reference_word_store_read risc_hello_world
+                     ; reference_word_store_read test_file ]

@@ -50,7 +50,10 @@ end
 
 type t = Region.t list [@@deriving show]
 
+let empty: t = []
+
 let gen =
+  (* Generate non overlapping, contiguous memory. *)
   let open QCheck2.Gen in
   let* regions = list_size (int_range 1 8) Region.gen in
   let sorted =

@@ -2,6 +2,7 @@
  (name test_riscv32im)
  (libraries
   riscv32im_stylus
+  stdint
   ounit2
   qcheck-ounit
   qcheck-core
