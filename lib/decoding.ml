@@ -22,7 +22,7 @@ type t =
   ; rs1: int
   (** The second register in an instruction. *)
   ; rs2: int
-  (** The immediate literal embedded in the instruction. Variably sized. *)
+  (** The immediate literal embedded in the instruction. *)
   ; imm: int32 }
 [@@deriving eq, make, sexp, show]
 
@@ -145,7 +145,8 @@ let unpack_operation w =
   | op when op = mask_opcode_system ->
     let imm = unpack_field w 20 12 in
     if funct3 = 0 && imm = 0 then ECALL
-    else EBREAK
+    else if funct3 = 0 && imm = 1 then EBREAK
+    else invalid_arg "unknown SYSTEM variant"
   | _ -> invalid_arg (Printf.sprintf "unknown op: %x" w)
 
 let decode_jal_imm w =

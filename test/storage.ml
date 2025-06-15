@@ -10,6 +10,7 @@ let gen_random_memory_access m =
   let max_addr = List.fold_left (fun acc Memory.Region.{ base; size; _ } ->
       max acc (base + size - 1)) Int.min_int m in
   let* addr = int_range min_addr (max_addr - 3) in
+  let addr = (addr / 4) * 4 in
   return (addr, m)
 
 let gen_random_word m =
@@ -90,6 +91,14 @@ let gen_i_shift_registers_and_values x =
     ~lifted_f:(fun i_typ_sft_dst i_typ_sft_src i_typ_sft_imm ->
         { i_typ_sft_dst ; i_typ_sft_src ; i_typ_sft_imm })
     ~tag_f:Opcodes.tag_i_shift
+    x
+
+let gen_i_sys_registers_and_values x =
+  let open Lifted in
+  gen_i_registers
+    ~lifted_f:(fun i_typ_sys_dst i_typ_sys_src i_typ_sys_imm ->
+        { i_typ_sys_dst ; i_typ_sys_src ; i_typ_sys_imm })
+    ~tag_f:Opcodes.tag_i_sys
     x
 
 let sprint_gen_i_registers_vals { src ; dst ; x ; y ; after_s ; res ; word ;_ } =

@@ -27,7 +27,6 @@ let sign_extend_16 x =
     logor x (lognot 0xffffl)
   else x
 
-[@@inline always]
 let to_int x = match Int32.unsigned_to_int x with
   | Some v -> v
   | None -> failwith "Bad int conversion"
@@ -104,7 +103,7 @@ let step_lw t dst src imm =
 let step_lh t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = sign_extend_16 (Memory.load_halfword_from_sim b addr) in
+  let value = Memory.load_halfword_from_sim b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lhu t dst src imm =
@@ -276,8 +275,7 @@ let ecall_ethereum_output_no = 4l
 
 let ecall_log fmt t from length =
   let { b; _ } = t in
-  Format.fprintf fmt "%s" (Memory.load_into_str_sim b from length);
-  Format.pp_force_newline fmt ();
+  Format.fprintf fmt "%s@." (Memory.load_into_str_sim b from length);
   t
 
 let ecall_ethereum_store t ptr_key ptr_val =
@@ -340,7 +338,7 @@ let step_div t dst src1 src2 =
   let dividend = Registers.get r src1 in
   let divisor = Registers.get r src2 in
   let result =
-    if divisor = 0l then -1l  (* Division by zero *)
+    if divisor = 0l then -1l (* Division by zero *)
     else if dividend = Int32.min_int && divisor = -1l then dividend
     else Int32.div dividend divisor in
   bump_pc { t with r = Registers.update r dst result }
@@ -350,7 +348,7 @@ let step_divu t dst src1 src2 =
   let dividend = Registers.get r src1 in
   let divisor = Registers.get r src2 in
   let result =
-    if divisor = 0l then -1l  (* Division by zero *)
+    if divisor = 0l then -1l (* Division by zero *)
     else Int32.unsigned_div dividend divisor in
   bump_pc { t with r = Registers.update r dst result }
 
@@ -464,7 +462,9 @@ let step ?(before_lift = id) ?(after_lift = id) ?(fmt = empty_fmt) t =
           word_int;
         raise err
       ) in
-  try step_lifted ~fmt t instr with err -> (
+  try step_lifted ~fmt t instr with
+  | Control.Exited _ as err -> raise err
+  | err -> (
       Format.fprintf fmt "Simulator: %a@.instruction: %a@."
         pp t
         Lifted.pp instr;

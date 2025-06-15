@@ -1,7 +1,6 @@
 
 (*
- * All of these tests implicitly use use nonzero registers! And do not interact with
- * Memory at all.
+ * All of these tests implicitly use use nonzero registers!
  *)
 
 open OUnit2
@@ -197,6 +196,15 @@ let auipc =
        res = exp
     )
 
+let lui = q2o @@ QCheck2.Test.make
+    ~name:"Lui"
+    ~print:sprint_gen_u_vals
+    (gen_u_values `Lui)
+    (fun { imm ; res ; _ } ->
+       let cleared = Int32.logand res 0xFFFl in
+       res = imm && cleared = 0l
+    )
+
 let beq =
   let open Simulator in
   q2o @@ QCheck2.Test.make
@@ -247,21 +255,126 @@ let lw =
   let open QCheck2.Gen in
   q2o @@ QCheck2.Test.make
     ~name:"Lw"
+    ~print:(fun (addr, word, src, dst, sim, imm) ->
+        Format.asprintf "Addr: %d, word: %ld, src: %a, dst: %a, sim: %a, imm: %ld"
+          addr
+          word
+          Registers.pp_reg src
+          Registers.pp_reg dst
+          Simulator.pp sim
+          imm
+      )
     (
-      let* addr, mem = gen_random_memory_access Memory.gen in
       let* r = Registers.gen in
       let* pc = int32 in
       let* src = Registers.gen_reg_nonzero in
       let* dst = Registers.gen_reg_nonzero in
+      let* imm = Lifted.gen_imm in
       let* word = int32 in
+      let* addr, mem = gen_random_memory_access Memory.gen in
       let r = Registers.update r src (Int32.of_int addr) in
-      Memory.store_word mem addr word;
-      return (addr, word, src, dst, Simulator.make ~r ~pc ~b:mem ())
+      let sim = Simulator.make ~r ~pc ~b:mem () in
+      return (addr, word, src, dst, sim, imm)
     )
-    (fun (_, word, src, dst, sim) ->
-      let op = Lifted.(Lw { i_typ_dst = dst ; i_typ_src = src ; i_typ_imm = 0l } ) in
-      let Simulator.{ r ; _ } = Simulator.step_lifted sim op in
-      Registers.get r dst = word
+    (fun (addr, word, src, dst, sim, _) ->
+       Memory.store_word sim.b addr word;
+       let op = Lifted.(Lw { i_typ_dst = dst ; i_typ_src = src ; i_typ_imm = 0l } ) in
+       let Simulator.{ r ; _ } = Simulator.step_lifted sim op in
+       Registers.get r dst = word
+    )
+
+let ecall = q2o @@ QCheck2.Test.make
+    ~name:"Ecall"
+    (
+      let open QCheck2.Gen in
+      let* r = Registers.gen in
+      let s = Simulator.make ~r () in
+      return s
+    )
+    (fun s ->
+       let op = Lifted.(Ecall empty_i_typ_sys) in
+       let e = Int32.to_int (Encoding.encode op) in
+       assert_equal (Lifted.from_word 0l e) op;
+       let Simulator.{ r ; _ } = s in
+       try Simulator.(test_last_op (step_lifted s op) op); true with
+       (* We only break if this is set to anything other than zero! *)
+       | _ when not (Registers.get r `A7 = 0l) -> true
+       | err -> raise err;
+    )
+
+let sw =
+  let open QCheck2.Gen in
+  q2o @@ QCheck2.Test.make
+    ~name:"Sw"
+    ~print:(fun (addr, src1, src2, word, sim) ->
+        Format.asprintf "Addr: %d, src1: %a, src: %a, word: %ld, sim: %a"
+          addr
+          Registers.pp_reg src1
+          Registers.pp_reg src2
+          word
+          Simulator.pp sim
+      )
+    (
+      let* r = Registers.gen in
+      let* pc = int32 in
+      let* src1 = Registers.gen_reg_nonzero in
+      let* src2 = Registers.gen_reg_nonzero in
+      let* addr, mem = gen_random_memory_access Memory.gen in
+      let* word = int32 in
+      let r =
+        Registers.(update (update r src1 (Int32.of_int addr)) src2 word) in
+      let sim = Simulator.make ~r ~pc ~b:mem () in
+      return (addr, src1, src2, word, sim)
+    )
+    (fun (addr, src1, src2, word, sim) ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       let op = Lifted.(Sw { s_typ_src1 = src1 ; s_typ_src2 = src2 ; s_typ_imm = 0l } ) in
+       assert_equal op (Lifted.from_word 0l (Int32.to_int (Encoding.encode op)));
+       let Simulator.{ r ; b ; _ } = Simulator.step_lifted sim op in
+       let addr = Int32.of_int addr in
+       assert_equal addr (Registers.get r src1);
+       assert_equal word (Registers.get r src2);
+       assert_equal word (Memory.load_word b (Int32.to_int addr));
+       true
+    )
+
+let sh =
+  let open QCheck2.Gen in
+  q2o @@ QCheck2.Test.make
+    ~name:"Sh"
+    ~print:(fun (addr, src1, src2, word, sim) ->
+        Format.asprintf "Addr: %d, src1: %a, src: %a, word: %ld, sim: %a"
+          addr
+          Registers.pp_reg src1
+          Registers.pp_reg src2
+          word
+          Simulator.pp sim
+      )
+    (
+      let* r = Registers.gen in
+      let* pc = int32 in
+      let* src1 = Registers.gen_reg_nonzero in
+      let* src2 = Registers.gen_reg_nonzero in
+      let* addr, mem = gen_random_memory_access Memory.gen in
+      let* word = int32 in
+      let r =
+        Registers.(update (update r src1 (Int32.of_int addr)) src2 word) in
+      let sim = Simulator.make ~r ~pc ~b:mem () in
+      return (addr, src1, src2, word, sim)
+    )
+    (fun (addr, src1, src2, word, sim) ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       let op = Lifted.(Sh { s_typ_src1 = src1 ; s_typ_src2 = src2 ; s_typ_imm = 0l } ) in
+       assert_equal op (Lifted.from_word 0l (Int32.to_int (Encoding.encode op)));
+       let Simulator.{ r ; b ; _ } = Simulator.step_lifted sim op in
+       let addr = Int32.of_int addr in
+       assert_equal addr (Registers.get r src1);
+       assert_equal word (Registers.get r src2);
+       let exp = Int32.logand word 0x0000ffffl in
+       let exp_sign_extended = Int32.shift_right (Int32.shift_left exp 16) 16 in
+       assert_equal exp_sign_extended (Memory.load_halfword b (Int32.to_int addr));
+       assert_equal exp (Memory.load_halfword_unsigned_from_sim b addr);
+       true
     )
 
 let test risc_hello_world stack_top pc =
@@ -285,9 +398,13 @@ let test risc_hello_world stack_top pc =
       ; slt
       ; jal
       ; auipc
+      ; lui
       ; beq
       ; bne
       ; blt
       ; bltu
       ; lw
+      ; ecall
+      ; sw
+      ; sh
       ]

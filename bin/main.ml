@@ -110,9 +110,12 @@ let () =
       | Some op -> last_ops :=
           List.sort_uniq Helpers.compare_lifted_name (op :: !last_ops)
       | None -> ();
+        Format.pp_force_newline fmt_stderr ();
         incr count
     done
   with
-    err ->
-    print_cleanup 1;
-    raise err
+  | Control.Exited _ -> print_endline "ebreak"
+  | err -> (
+      print_cleanup 1;
+      raise err
+    )

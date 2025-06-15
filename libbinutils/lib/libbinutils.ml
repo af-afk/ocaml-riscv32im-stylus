@@ -1,7 +1,10 @@
 open Ctypes
 
 module Types = Types_generated
-module Functions = Function_description.Functions (Libbfd__c_generated_functions__Function_description__Functions)
+
+module Functions = Function_description.Functions (
+  Libbfd__c_generated_functions__Function_description__Functions
+)
 
 open Types
 

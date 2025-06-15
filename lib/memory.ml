@@ -61,6 +61,9 @@ type t = Region.t list [@@deriving show]
 
 let empty: t = []
 
+let max_loc =
+  List.fold_left (fun m Region.{ base ; size ; _ } -> max m (base + size)) 4
+
 let gen =
   (* Generate non overlapping, contiguous memory. *)
   let open QCheck2.Gen in
@@ -153,9 +156,7 @@ let of_path name =
   let stack_top = ram_end - 0x100 in
   bfd, (all_regions), stack_top, pc
 
-[@@inline always]
-let convert_to_int x =
-  Option.get (Int32.unsigned_to_int x) (* TODO *)
+let convert_to_int x = Option.get (Int32.unsigned_to_int x)
 
 let find_region regions addr =
   List.find_opt (fun Region.{ base ; size ; _ } ->
@@ -170,7 +171,7 @@ let load_byte regions addr =
     let offset = addr - base in
     Int32.of_int (Bigarray.Array1.get mem offset land 0xff)
   | Some _ -> failwith "Memory not readable"
-  | None -> failwith (Printf.sprintf "Unmapped memory access addr: %x" addr)
+  | None -> failwith (Printf.sprintf "Unmapped load byte memory access addr: %d(0x%x)" addr addr)
 
 let load_byte_sim regions =
   load_byte regions $$ convert_to_int
@@ -197,7 +198,9 @@ let load_byte_unsigned regions addr =
     let offset = addr - base in
     Int32.of_int (Bigarray.Array1.get mem offset land 0xff)
   | Some _ -> failwith "Memory not readable"
-  | None -> failwith (Printf.sprintf "Unmapped memory access addr: %x" addr)
+  | None -> failwith (
+      Printf.sprintf
+        "Unmapped load byte unsigned memory access addr: %l(0x%x)"  addr addr)
 
 let load_byte_unsigned_sim regions =
   load_byte_unsigned regions $$ convert_to_int
@@ -239,7 +242,13 @@ let store_byte regions addr value =
     let offset = addr - base in
     Bigarray.Array1.set mem offset (convert_to_int value land 0xff)
   | Some _ -> failwith (Printf.sprintf "Memory offset %x not writeable with byte" addr)
-  | None -> failwith (Printf.sprintf "Unmapped memory access addr: %x" addr)
+  | None -> failwith (
+      Printf.sprintf
+        "Unmapped store byte memory access addr: %l (0x%x), max is %d"
+        addr
+        addr
+        (max_loc regions)
+    )
 
 let store_byte_sim regions addr value =
   store_byte regions (convert_to_int addr) value
@@ -250,19 +259,28 @@ let store_array regions pos arr =
   done
 
 let store_halfword regions addr value =
-  store_byte regions addr (Int32.logand value 0xffl);
-  store_byte regions
-    (addr + 1)
-    (Int32.logand (Int32.shift_right_logical value 8) 0xffl)
+    store_byte regions addr (Int32.logand value 0xffl);
+    store_byte regions
+      (addr + 1)
+      (Int32.logand (Int32.shift_right_logical value 8) 0xffl)
 
 let store_halfword_sim regions addr value =
   store_halfword regions (convert_to_int addr) value
 
 let store_word regions addr value =
-  store_halfword regions addr (Int32.logand value 0xffffl);
-  store_halfword regions
-    (addr + 2)
-    (Int32.logand (Int32.shift_right_logical value 16) 0xffffl)
+  if not (addr mod 4 = 0) then
+    invalid_arg (Printf.sprintf "Store word misalignment: %d" addr);
+  (try store_halfword regions addr (Int32.logand value 0xffffl) with
+   | Invalid_argument msg -> failwith (Printf.sprintf "first halfword write: %s, addr: %d" msg addr)
+  );
+  (try
+     store_halfword regions
+       (addr + 2)
+       (Int32.logand (Int32.shift_right_logical value 16) 0xffffl)
+   with
+   | Invalid_argument msg -> failwith (Printf.sprintf "second halfword write: %s, addr: %d" msg addr)
+  );
+  ()
 
 let store_word_sim regions addr value =
   store_word regions (convert_to_int addr) value
