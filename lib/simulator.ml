@@ -201,9 +201,10 @@ let step_auipc t dst imm =
 
 let step_jal t dst imm =
   let { r ; pc ; _ } = t in
+  let target = Int32.(logand (add pc imm) (lognot 1l)) in
   { t with
     r = Registers.update r dst (Int32.add pc 4l);
-    pc = Int32.add pc imm }  (* Imm already sign-extended from decode *)
+    pc = target }
 
 let step_sw t src1 src2 imm =
   let { r ; b ; _ } = t in

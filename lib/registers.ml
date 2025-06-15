@@ -108,7 +108,8 @@ let pp_reg_int_maybe fmt int =
 
 let zero = `Zero
 
-let update t dst x = match dst with
+let update t dst x =
+  match dst with
   | `Zero -> t (* We need to ignore here according to the spec! *)
   | `Ra -> { t with t_r_ra = x } | `Sp -> { t with t_r_sp = x } | `Gp -> { t with t_r_gp = x }
   | `Tp -> { t with t_r_tp = x } | `T0 -> { t with t_r_t0 = x } | `T1 -> { t with t_r_t1 = x }

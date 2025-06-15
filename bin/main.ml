@@ -1,7 +1,7 @@
 
 open Riscv32im_stylus
 
-let max_cycles = 1000
+let max_cycles = 100
 
 module Cycle_detection = struct
   type t = ((int32 * Registers.t) * int) list [@@deriving show]
@@ -25,7 +25,7 @@ module Cycle_detection = struct
       | [] -> []
       | x :: xs when n > 0 -> x :: take (n - 1) xs
       | _ -> [] in
-    take 10 updated
+    take max_cycles updated
 end
 
 module type Circular_buffer_s = sig
@@ -77,6 +77,7 @@ let () =
   let count = ref 0 in
   let sim = ref (Simulator.make ~b:mem ~r:registers ~pc ()) in
   let cycles = ref Cycle_detection.empty in
+  let last_ops = ref [] in
   let print_cleanup _ = (
     Simulator.pp fmt_stderr !sim;
     (* TODO make cleaner *)
@@ -90,12 +91,13 @@ let () =
       Circ_lifted.pp circ_lifted;
     Format.fprintf fmt_stderr "@.PC CIRCULAR BUFFER: %a"
       Circ_hex.pp circ_pc;
-    Format.fprintf fmt_stderr "@.CURRENT STACK POINTER: %lx@.INSTRUCTION COUNT: %l@." !sim.pc !count;
+    Format.fprintf fmt_stderr "@.CURRENT STACK POINTER: %lx@.INSTRUCTION COUNT: %l" !sim.pc !count;
+    Format.fprintf fmt_stderr "@.UNIQUE OP NAMES SEEN: %a@." (Format.pp_print_list Lifted.pp) !last_ops;
   ) in
   Sys.set_signal Sys.sigusr1 (Sys.Signal_handle print_cleanup);
   try
     while true do
-      let Simulator.{ pc; r; _ } = !sim in
+      let Simulator.{ pc; r; last_op ; _ } = !sim in
       Circ_registers.push circ_registers r;
       cycles := Cycle_detection.track !cycles pc r;
       Circ_hex.push circ_pc pc;
@@ -104,7 +106,11 @@ let () =
           ~after_lift:(fun x -> Circ_lifted.push circ_lifted x; x)
           fmt_stderr
           !sim;
-      incr count
+      match last_op with
+      | Some op -> last_ops :=
+          List.sort_uniq Helpers.compare_lifted_name (op :: !last_ops)
+      | None -> ();
+        incr count
     done
   with
     err ->

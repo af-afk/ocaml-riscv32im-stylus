@@ -1,6 +1,7 @@
 
 module Region = struct
   type arr = (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
   type t =
     { desc: string
     ; mem: arr
@@ -45,7 +46,15 @@ module Region = struct
     let* desc = string in
     let* size = int_range 4 1024 in
     let* base = int_range 0 10000 in
-    return (create ~desc ~base ~size ())
+    let m = create ~desc ~base ~size () in
+    let* _ = fix (fun self i ->
+        if i >= size then pure ()
+        else
+          let* v = int in
+          let () = Bigarray.Array1.set m.mem i v in
+          self (i + 1)
+      ) 0 in
+    return m
 end
 
 type t = Region.t list [@@deriving show]

@@ -9,6 +9,8 @@ open Riscv32im_stylus
 
 open Storage
 
+let q2o = QCheck_ounit.to_ounit2_test
+
 let make_ounit_formatter ctx =
   Format.make_formatter
     (fun s pos len ->
@@ -30,22 +32,19 @@ let should_simulate_program_ok mem stack_top pc =
       with Control.Exited `Ebreak -> ()
     )
 
-let addi =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let addi = q2o @@ QCheck2.Test.make
     ~name:"Addi"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Addi)
     (fun { x ; y ; res ; _ } -> res = Int32.add x y)
 
-let slti =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let slti = q2o @@ QCheck2.Test.make
     ~name:"Slti"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Slti)
     (fun { x ; y ; res ; _ } -> res = if x < y then 1l else 0l)
 
-let sltiu =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let sltiu = q2o @@ QCheck2.Test.make
     ~name:"Sltiu"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Sltiu)
@@ -53,22 +52,19 @@ let sltiu =
        res = if Int32.unsigned_compare x y < 0 then 1l else 0l
     )
 
-let andi =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let andi = q2o @@ QCheck2.Test.make
     ~name:"Andi"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Andi)
     (fun { x ; y ; res ; _ } -> res = Int32.logand x y)
 
-let ori =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let ori = q2o @@ QCheck2.Test.make
     ~name:"Ori"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Ori)
     (fun { x ; y ; res ; _ } -> Int32.logor x y = res)
 
-let xori =
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+let xori = q2o @@ QCheck2.Test.make
     ~name:"Xori"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Xori)
@@ -76,22 +72,181 @@ let xori =
 
 let jalr =
   let open Simulator in
-  QCheck_ounit.to_ounit2_test @@ QCheck2.Test.make
+  q2o @@ QCheck2.Test.make
     ~name:"Jalr"
     ~print:sprint_gen_i_registers_vals
     (gen_i_registers_and_values `Jalr)
-    (fun
-      { x
-      ; y
-      ; before_s = { pc = before_pc; _ }
-      ; after_s = { pc = after_pc; _ }
-      ; res
-      ; _
-      } ->
-      let exp_pc = Int32.(logand (add x y) (lognot 1l)) in
-      let exp_res = Int32.add before_pc 4l in
-      after_pc = exp_pc && res = exp_res
+    (fun  { x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc; _ } ; res  ; _  } ->
+       let exp_pc = Int32.(logand (add x y) (lognot 1l)) in
+       let exp_res = Int32.add before_pc 4l in
+       after_pc = exp_pc && res = exp_res
     )
+
+let slli = q2o @@ QCheck2.Test.make
+    ~name:"Slli"
+    ~print:sprint_gen_i_registers_vals
+    (gen_i_shift_registers_and_values `Slli)
+    (fun { x ; y ; res ; _ } ->
+       let amt = Int32.(to_int (logand y 0x1fl)) in
+       Int32.shift_left x amt = res
+    )
+
+let srli = q2o @@ QCheck2.Test.make
+    ~name:"Srli"
+    ~print:sprint_gen_i_registers_vals
+    (gen_i_shift_registers_and_values `Srli)
+    (fun { x ; y ; res ; _ } ->
+       let amt = Int32.(to_int (logand y 0x1fl)) in
+       Int32.shift_right_logical x amt = res
+    )
+
+let srai = q2o @@ QCheck2.Test.make
+    ~name:"Srai"
+    ~print:sprint_gen_i_registers_vals
+    (gen_i_shift_registers_and_values `Srai)
+    (fun { x ; y ; res ; _ } ->
+       let amt = Int32.(to_int (logand y 0x1fl)) in
+       Int32.shift_right x amt = res)
+
+let add = q2o @@ QCheck2.Test.make
+    ~name:"Add"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Add)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.add x y
+    )
+
+let sub = q2o @@ QCheck2.Test.make
+    ~name:"Sub"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Sub)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.sub x y
+    )
+
+let xor = q2o @@ QCheck2.Test.make
+    ~name:"Xor"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Xor)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.logxor x y
+    )
+
+let mul = q2o @@ QCheck2.Test.make
+    ~name:"Mul"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Mul)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.mul x y
+    )
+
+let mulhu = q2o @@ QCheck2.Test.make
+    ~name:"Mulhu"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Mulhu)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       let open Stdint in
+      (*
+       * We use stdint as the reference here since we need to be sure about our
+       * approach.
+       *)
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       let x_uint32 = Uint32.of_int32 x in
+       let y_uint32 = Uint32.of_int32 y in
+       let x_uint64 = Uint64.of_uint32 x_uint32 in
+       let y_uint64 = Uint64.of_uint32 y_uint32 in
+       let result64 = Uint64.mul x_uint64 y_uint64 in
+       let upper32 = Uint64.shift_right result64 32 |> Uint64.to_uint32 in
+       compare upper32 (Uint32.of_int32 res) = 0
+    )
+
+let slt = q2o @@ QCheck2.Test.make
+    ~name:"Slt"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Slt)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = if Int32.compare x y < 0 then 1l else 0l
+    )
+
+let jal =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Jal"
+    ~print:sprint_gen_j_vals
+    (gen_j_values `Jal)
+    (fun { imm ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc; _ } ; res ; _ } ->
+       let exp_pc = Int32.(logand (add before_pc imm) (lognot 1l)) in
+       let exp_res = Int32.add before_pc 4l in
+       after_pc = exp_pc && res = exp_res
+    )
+
+let auipc =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Auipc"
+    ~print:sprint_gen_u_vals
+    (gen_u_values `Auipc)
+    (fun { imm ; before_s = { pc = before_pc; _ } ; res ; _ } ->
+       let exp = Int32.(add before_pc imm) in
+       res = exp
+    )
+
+let beq =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Beq"
+    ~print:sprint_gen_b_vals
+    (gen_b_registers_and_values `Beq)
+    (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       if x = y then after_pc = before_pc + imm else after_pc = before_pc + 4l
+    )
+
+let bne =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Beq"
+    ~print:sprint_gen_b_vals
+    (gen_b_registers_and_values `Bne)
+    (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       if not (x = y) then after_pc = before_pc + imm else after_pc = before_pc + 4l
+    )
+
+let blt =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Blt"
+    ~print:sprint_gen_b_vals
+    (gen_b_registers_and_values `Blt)
+    (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       if not (x > y) then after_pc = before_pc + imm else after_pc = before_pc + 4l
+    )
+
+let bltu =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Bltu"
+    ~print:sprint_gen_b_vals
+    (gen_b_registers_and_values `Bltu)
+    (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       if (Int32.unsigned_compare x y < 0) then
+         after_pc = before_pc + imm
+         else after_pc = before_pc + 4l
+    )
+
+let join_mem_access j =
+  let open QCheck2.Gen in
+  let* addr, w, m = gen_random_word Memory.gen in
+  let* j = j m addr in
+  return (addr, w, m, j)
 
 let test risc_hello_world stack_top pc =
   "opcodes"
@@ -102,4 +257,20 @@ let test risc_hello_world stack_top pc =
       ; andi
       ; ori
       ; xori
-      ; jalr ]
+      ; jalr
+      ; slli
+      ; srli
+      ; srai
+      ; add
+      ; sub
+      ; xor
+      ; mul
+      ; mulhu
+      ; slt
+      ; jal
+      ; auipc
+      ; beq
+      ; bne
+      ; blt
+      ; bltu
+      ]

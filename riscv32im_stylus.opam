@@ -10,6 +10,14 @@ bug-reports: "https://github.com/af-afk/riscvim32/issues"
 depends: [
   "dune" {>= "3.18"}
   "ocaml"
+  "ppx_deriving"
+  "ppx_hash"
+  "ppx_sexp_conv"
+  "ppx_hash"
+  "ppx_compare"
+  "sexplib0"
+  "conf-binutils"
+  "ctypes"
   "odoc" {with-doc}
 ]
 build: [
