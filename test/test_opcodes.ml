@@ -1,6 +1,7 @@
 
 (*
- * All of these tests implicitly use use nonzero registers!
+ * All of these tests implicitly use use nonzero registers! And do not interact with
+ * Memory at all.
  *)
 
 open OUnit2
@@ -25,7 +26,7 @@ let should_simulate_program_ok mem stack_top pc =
         let registers = { Registers.empty_spike with t_r_sp = Int32.of_int stack_top } in
         let sim = ref (Simulator.make ~b:mem ~r:registers ~pc ()) in
         while true do
-          sim := Simulator.step (make_ounit_formatter ctx) !sim
+          sim := Simulator.step ~fmt:(make_ounit_formatter ctx) !sim
         done;
         (* This will never get here if something goes wrong unfortunately. *)
         assert_failure "Didn't exit!"
@@ -239,17 +240,32 @@ let bltu =
        QCheck2.assume (not (Registers.equal_reg src1 src2));
        if (Int32.unsigned_compare x y < 0) then
          after_pc = before_pc + imm
-         else after_pc = before_pc + 4l
+       else after_pc = before_pc + 4l
     )
 
-let join_mem_access j =
+let lw =
   let open QCheck2.Gen in
-  let* addr, w, m = gen_random_word Memory.gen in
-  let* j = j m addr in
-  return (addr, w, m, j)
+  q2o @@ QCheck2.Test.make
+    ~name:"Lw"
+    (
+      let* addr, mem = gen_random_memory_access Memory.gen in
+      let* r = Registers.gen in
+      let* pc = int32 in
+      let* src = Registers.gen_reg_nonzero in
+      let* dst = Registers.gen_reg_nonzero in
+      let* word = int32 in
+      let r = Registers.update r src (Int32.of_int addr) in
+      Memory.store_word mem addr word;
+      return (addr, word, src, dst, Simulator.make ~r ~pc ~b:mem ())
+    )
+    (fun (_, word, src, dst, sim) ->
+      let op = Lifted.(Lw { i_typ_dst = dst ; i_typ_src = src ; i_typ_imm = 0l } ) in
+      let Simulator.{ r ; _ } = Simulator.step_lifted sim op in
+      Registers.get r dst = word
+    )
 
 let test risc_hello_world stack_top pc =
-  "opcodes"
+  "Opcodes"
   >:::[ should_simulate_program_ok risc_hello_world stack_top pc
       ; addi
       ; slti
@@ -273,4 +289,5 @@ let test risc_hello_world stack_top pc =
       ; bne
       ; blt
       ; bltu
+      ; lw
       ]

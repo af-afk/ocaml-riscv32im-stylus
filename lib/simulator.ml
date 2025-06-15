@@ -191,8 +191,7 @@ let step_sra t dst src1 src2 =
 
 let step_lui t dst imm =
   let { r ; _ } = t in
-  bump_pc
-    { t with r = Registers.update r dst (Int32.shift_left imm 12) }
+  bump_pc { t with r = Registers.update r dst imm }
 
 let step_auipc t dst imm =
   let { r ; pc ; _ } = t in
@@ -374,7 +373,9 @@ let step_remu t dst src1 src2 =
     else Int32.unsigned_rem dividend divisor in
   bump_pc { t with r = Registers.update r dst result }
 
-let step_lifted fmt t f =
+let empty_fmt = Format.make_formatter (fun _ _ _ -> ()) (fun () -> ())
+
+let step_lifted ?(fmt = empty_fmt) t f =
   let open Lifted in
   let t = { t with last_op = Some f } in
   let apply_i { i_typ_dst; i_typ_src; i_typ_imm } f =
@@ -451,7 +452,7 @@ let step_lifted fmt t f =
 
 let id x = x
 
-let step ?(before_lift = id) ?(after_lift = id) fmt t =
+let step ?(before_lift = id) ?(after_lift = id) ?(fmt = empty_fmt) t =
   let { b ; pc ; _ } = t in
   let word = before_lift (Memory.load_word_from_sim b pc) in
   let word_int = to_int word in
@@ -463,7 +464,7 @@ let step ?(before_lift = id) ?(after_lift = id) fmt t =
           word_int;
         raise err
       ) in
-  try step_lifted fmt t instr with err -> (
+  try step_lifted ~fmt t instr with err -> (
       Format.fprintf fmt "Simulator: %a@.instruction: %a@."
         pp t
         Lifted.pp instr;

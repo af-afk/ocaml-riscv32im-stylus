@@ -104,7 +104,7 @@ let () =
       sim := Simulator.step
           ~before_lift:(fun x -> Circ_hex.push circ_words x; x)
           ~after_lift:(fun x -> Circ_lifted.push circ_lifted x; x)
-          fmt_stderr
+          ~fmt:fmt_stderr
           !sim;
       match last_op with
       | Some op -> last_ops :=

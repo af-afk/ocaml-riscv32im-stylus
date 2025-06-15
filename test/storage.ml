@@ -46,7 +46,9 @@ type test_i =
   ; y: int32
   ; before_s: Simulator.t
   ; after_s: Simulator.t
-  ; res: int32 }
+  ; res: int32
+  ; mem: Memory.t option
+  ; word: int }
 
 let gen_i_registers ~lifted_f ~tag_f tag =
   let open QCheck2.Gen in
@@ -59,10 +61,21 @@ let gen_i_registers ~lifted_f ~tag_f tag =
   let o = tag_f tag i in
   let* r = Registers.gen in
   let before_s = Simulator.make ~r: Registers.(update r src x) ~pc () in
-  let after_s = Simulator.(step_lifted empty_fmt before_s o) in
+  let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
-  return { o ; r = after_s.r ; src ; dst ; x ; y ; before_s; after_s; res }
+  return
+    { o
+    ; r = after_s.r
+    ; src
+    ; dst
+    ; x
+    ; y
+    ; before_s
+    ; after_s
+    ; res
+    ; mem = None
+    ; word = 0 }
 
 let gen_i_registers_and_values x =
   let open Lifted in
@@ -79,14 +92,15 @@ let gen_i_shift_registers_and_values x =
     ~tag_f:Opcodes.tag_i_shift
     x
 
-let sprint_gen_i_registers_vals { src ; dst ; x ; y ; after_s ; res ;_ } =
-  Format.asprintf "Val1: %ld, val2: %ld, src: %a, dst: %a, after simulator: %a, result: %ld"
+let sprint_gen_i_registers_vals { src ; dst ; x ; y ; after_s ; res ; word ;_ } =
+  Format.asprintf "Val1: %ld, val2: %ld, src: %a, dst: %a, after simulator: %a, result: %ld, word: 0x%x"
     x
     y
     Registers.pp_reg src
     Registers.pp_reg dst
     Simulator.pp after_s
     res
+    word
 
 type test_r =
   { o: Lifted.t
@@ -112,7 +126,7 @@ let gen_r_registers_and_values tag =
   let i = Lifted.{ r_typ_dst = dst; r_typ_src1 = src1; r_typ_src2 = src2 } in
   let o = Opcodes.tag_r tag i in
   let before_s = Simulator.make ~r () in
-  let after_s = Simulator.(step_lifted empty_fmt before_s o) in
+  let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
   return { o ; r = after_s.r ; src1 ; src2 ; dst ; x ; y ; before_s; after_s; res }
@@ -145,7 +159,7 @@ let gen_j_values tag =
   let i = Lifted.{ j_typ_dst = dst; j_typ_imm = imm } in
   let o = Opcodes.tag_j tag i in
   let before_s = Simulator.make ~r ~pc () in
-  let after_s = Simulator.(step_lifted empty_fmt before_s o) in
+  let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
   return { o ; r ; dst ; imm ; before_s ; after_s ; res }
@@ -175,7 +189,7 @@ let gen_u_values tag =
   let i = Lifted.{ u_typ_dst = dst; u_typ_imm = imm } in
   let o = Opcodes.tag_u tag i in
   let before_s = Simulator.make ~r ~pc () in
-  let after_s = Simulator.(step_lifted empty_fmt before_s o) in
+  let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
   return { o ; r ; dst ; imm ; before_s ; after_s ; res }
@@ -211,7 +225,7 @@ let gen_b_registers_and_values tag =
   let i = Lifted.{ b_typ_src1 = src1 ; b_typ_src2 = src2 ; b_typ_imm = imm } in
   let o = Opcodes.tag_b tag i in
   let before_s = Simulator.make ~r ~pc () in
-  let after_s = Simulator.(step_lifted empty_fmt before_s o) in
+  let after_s = Simulator.step_lifted before_s o in
   test_last_op after_s o;
   return { x ; y ; o ; r ; src1 ; src2 ; imm ; before_s ; after_s }
 

@@ -25,7 +25,7 @@ module Region = struct
     ; executable }
 
   let pp fmt { desc ; base ; size ; readable ; writeable ; executable ; _ } =
-    Format.fprintf fmt "{ desc = %s; base = %x (0x%x); size = %d (0x%x); readable = %b; writeable = %b; executable = %b }"
+    Format.fprintf fmt "{ desc = %s; base = %d (0x%x); size = %d (0x%x); readable = %b; writeable = %b; executable = %b }"
       desc base base size size readable writeable executable
 
   let to_seq_words { mem ; _ } =
@@ -43,7 +43,7 @@ module Region = struct
 
   let gen =
     let open QCheck2.Gen in
-    let* desc = string in
+    let* desc = string_small_of printable in
     let* size = int_range 4 1024 in
     let* base = int_range 0 10000 in
     let m = create ~desc ~base ~size () in
@@ -73,7 +73,7 @@ let gen =
     | [] -> return (List.rev acc)
     | r :: rest ->
       let new_region = Region.{ r with base = next_base } in
-      make (new_region :: acc) (next_base + r.size) rest in
+      make (new_region :: acc) (next_base + new_region.size) rest in
   make [] 0 sorted
 
 let ($$) g f x = g (f x)
