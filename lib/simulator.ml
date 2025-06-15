@@ -13,20 +13,6 @@ let (+) = Int32.add
 
 let bump_pc t = { t with pc = Int32.add 4l t.pc }
 
-let sign_extend_8 x =
-  let open Int32 in
-  let x = logand x 0xffl in
-  if logand x 0x80l <> 0l then
-    logor x (lognot 0xffl)
-  else x
-
-let sign_extend_16 x =
-  let open Int32 in
-  let x = logand x 0xffffl in
-  if logand x 0x8000l <> 0l then
-    logor x (lognot 0xffffl)
-  else x
-
 let to_int x = match Int32.unsigned_to_int x with
   | Some v -> v
   | None -> failwith "Bad int conversion"
@@ -115,7 +101,7 @@ let step_lhu t dst src imm =
 let step_lb t dst src imm =
   let { r ; b ; _ } = t in
   let addr = Int32.add (Registers.get r src) imm in
-  let value = sign_extend_8 (Memory.load_byte_sim b addr) in
+  let value = Memory.load_byte_sim b addr in
   bump_pc { t with r = Registers.update r dst value }
 
 let step_lbu t dst src imm =

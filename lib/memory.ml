@@ -165,11 +165,26 @@ let find_region regions addr =
 
 let ($$) g f x = g (f x)
 
+let sign_extend_8 x =
+  let open Int32 in
+  let x = logand x 0xffl in
+  if logand x 0x80l <> 0l then
+    logor x (lognot 0xffl)
+  else x
+
+let sign_extend_16 x =
+  let open Int32 in
+  let x = logand x 0xffffl in
+  if logand x 0x8000l <> 0l then
+    logor x (lognot 0xffffl)
+  else x
+
 let load_byte regions addr =
   match find_region regions addr with
   | Some { mem ; base ; readable ; _ } when readable ->
     let offset = addr - base in
-    Int32.of_int (Bigarray.Array1.get mem offset land 0xff)
+    let x = Int32.of_int (Bigarray.Array1.get mem offset land 0xff) in
+    sign_extend_8 x
   | Some _ -> failwith "Memory not readable"
   | None -> failwith (Printf.sprintf "Unmapped load byte memory access addr: %d(0x%x)" addr addr)
 
@@ -204,13 +219,6 @@ let load_byte_unsigned regions addr =
 
 let load_byte_unsigned_sim regions =
   load_byte_unsigned regions $$ convert_to_int
-
-let sign_extend_16 x =
-  let open Int32 in
-  let x = logand x 0xffffl in
-  if logand x 0x8000l <> 0l then
-    logor x (lognot 0xffffl)
-  else x
 
 let load_halfword regions addr =
   let b0 = load_byte_unsigned regions addr in
@@ -259,10 +267,10 @@ let store_array regions pos arr =
   done
 
 let store_halfword regions addr value =
-    store_byte regions addr (Int32.logand value 0xffl);
-    store_byte regions
-      (addr + 1)
-      (Int32.logand (Int32.shift_right_logical value 8) 0xffl)
+  store_byte regions addr (Int32.logand value 0xffl);
+  store_byte regions
+    (addr + 1)
+    (Int32.logand (Int32.shift_right_logical value 8) 0xffl)
 
 let store_halfword_sim regions addr value =
   store_halfword regions (convert_to_int addr) value
