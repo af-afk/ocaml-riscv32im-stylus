@@ -115,7 +115,7 @@ let () =
         incr count
     done
   with
-  | Control.Exited _ -> Format.eprintf "%a@." Ethereum.pp !sim.e;
+  | Control.Exited _ -> ()
   | err -> (
       print_cleanup 1;
       raise err

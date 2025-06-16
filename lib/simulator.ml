@@ -265,29 +265,20 @@ let ecall_log fmt t from length =
   Format.fprintf fmt "%s@." (Memory.load_into_str_sim b from length);
   t
 
-let pp_int_array fmt a =
-  Format.fprintf fmt "@[<v>[|";
-  Array.iteri (fun i x ->
-    if i > 0 then Format.fprintf fmt ";";
-    Format.fprintf fmt "@,%d" x
-  ) a;
-  Format.fprintf fmt "@,@]|]@]"
-
 let ecall_ethereum_store t ptr_key ptr_val =
   let { e; b; _ } = t in
   let ptr_key = to_int ptr_key in
   let ptr_val = to_int ptr_val in
   let key = Memory.load_into_array b ptr_key 32l in
-  Format.eprintf "%a@." pp_int_array key;
   let key = Ethereum.Word.of_array key in
-  Format.eprintf "%a@." Ethereum.Word.pp key;
   let v =
     Ethereum.Word.of_array (Memory.load_into_array b ptr_val 32l) in
   { t with e = Ethereum.store_word e key v }
 
 let ecall_ethereum_load t ptr_key ptr_write =
   let { e; b; _ } = t in
-  let ptr_key, ptr_write = Int32.(to_int ptr_key, to_int ptr_write) in
+  let ptr_key = to_int ptr_key in
+  let ptr_write = to_int ptr_write in
   let key =
     Ethereum.Word.of_array (Memory.load_into_array b ptr_key 32l) in
   let v = Ethereum.load_word e key in
