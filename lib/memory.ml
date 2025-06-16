@@ -93,6 +93,7 @@ let of_path name =
     with
     | Some sym -> Int32.of_int (Libbinutils.asymbol_value sym)
     | None -> invalid_arg "No symbol titled _start" in
+
   let sections =
     Libbinutils.asections_seq bfd |> Seq.filter_map (fun sect ->
         let name = Libbinutils.section_name sect in
