@@ -51,6 +51,11 @@ let gen_imm_b_typ =
   let* offset = int_range (-2048) 2047 in
   return (Int32.of_int (offset * 2))
 
+type csr = int32
+[@@deriving show, eq, sexp]
+
+let gen_csr = QCheck2.Gen.int32
+
 type i_typ_sys =
   { i_typ_sys_dst: reg
   ; i_typ_sys_src: reg
@@ -75,6 +80,16 @@ and i_typ_sft =
   ; i_typ_sft_src: reg
   ; i_typ_sft_imm: imm_i_typ_shift }
 
+and i_typ_csr =
+  { i_typ_csr_dst: reg
+  ; i_typ_csr_addr: csr
+  ; i_typ_csr_src: reg }
+
+and i_typ_csr_imm =
+  { i_typ_csr_imm_dst: reg
+  ; i_typ_csr_imm_addr: csr
+  ; i_typ_csr_imm_imm: imm }
+
 and u_typ = { u_typ_dst: reg; u_typ_imm: imm_u_typ }
 
 and r_typ =
@@ -98,8 +113,11 @@ and t =
   | Addi of i_typ | Slti of i_typ | Sltiu of i_typ | Andi of i_typ
   | Ori of i_typ | Xori of i_typ | Jalr of i_typ | Lh of i_typ
   | Lhu of i_typ | Lb of i_typ | Lbu of i_typ | Lw of i_typ
-  | Slli of i_typ_sft | Srli of i_typ_sft | Srai of i_typ_sft | Ecall of i_typ_sys
-  | Ebreak of i_typ_sys | Fence of i_typ
+  | Slli of i_typ_sft | Srli of i_typ_sft | Srai of i_typ_sft
+  | Ecall of i_typ_sys | Ebreak of i_typ_sys | Fence of i_typ
+  | Csrrw of i_typ_csr | Csrrs of i_typ_csr | Csrrc of i_typ_csr
+  | Csrrwi of i_typ_csr_imm | Csrrsi of i_typ_csr_imm
+  | Csrrci of i_typ_csr_imm
   | Add of r_typ | Sub of r_typ | Slt of r_typ | Sltu of r_typ
   | And of r_typ | Or of r_typ | Xor of r_typ | Sll of r_typ
   | Srl of r_typ | Sra of r_typ | Mul of r_typ | Mulh of r_typ
@@ -147,6 +165,9 @@ let get_opcode_mask =
   (* Branch operations *)
   | Beq _ | Bne _ | Blt _ | Bltu _
   | Bge _ | Bgeu _ -> mask_opcode_branch
+  (* Control and status operations *)
+  | Csrrw _ | Csrrs _ | Csrrc _
+  | Csrrwi _ | Csrrsi _ | Csrrci _ -> mask_opcode_system
 
 let get_funct3_mask =
   let open Operation in
@@ -199,6 +220,12 @@ let get_funct3_mask =
   | Bltu _ -> mask_funct3_bltu
   | Bge _ -> mask_funct3_bge
   | Bgeu _ -> mask_funct3_bgeu
+  | Csrrw _ -> mask_funct3_csrrw
+  | Csrrs _ -> mask_funct3_csrrs
+  | Csrrc _ -> mask_funct3_csrrc
+  | Csrrwi _ -> mask_funct3_csrrwi
+  | Csrrsi _ -> mask_funct3_csrrsi
+  | Csrrci _ -> mask_funct3_csrrci
 
 let get_funct7_mask =
   let open Operation in
@@ -250,11 +277,17 @@ let from_word loc w =
   let open Decoding in
   let { operation; rd; rs1; rs2; imm; _ } = Decoding.from loc w in
   let rd = Registers.of_int rd in
+  let rs1_addr = rs1 in
   let rs1 = Registers.of_int rs1 in
   let rs2 = Registers.of_int rs2 in
   let i = { i_typ_dst = rd; i_typ_src = rs1; i_typ_imm = imm } in
   let i_sft = { i_typ_sft_dst = rd; i_typ_sft_src = rs1; i_typ_sft_imm = imm } in
   let i_sys = { i_typ_sys_dst = rd; i_typ_sys_src = rs1; i_typ_sys_imm = imm } in
+  let i_csr = { i_typ_csr_dst = rd; i_typ_csr_addr = imm; i_typ_csr_src = rs1 } in
+  let i_csr_imm =
+    { i_typ_csr_imm_dst = rd
+    ; i_typ_csr_imm_addr = Int32.of_int rs1_addr
+    ; i_typ_csr_imm_imm = imm } in
   let r = { r_typ_dst = rd; r_typ_src1 = rs1; r_typ_src2 = rs2 } in
   let u = { u_typ_dst = rd; u_typ_imm = imm } in
   let s = { s_typ_src1 = rs1; s_typ_src2 = rs2; s_typ_imm = imm } in
@@ -267,6 +300,9 @@ let from_word loc w =
   | SRAI -> Srai i_sft | JALR -> Jalr i | LW -> Lw i | LH -> Lh i
   | LHU -> Lhu i | LB -> Lb i | LBU -> Lbu i | FENCE -> Fence i
   | ECALL -> Ecall i_sys | EBREAK -> Ebreak i_sys
+  | CSRRW -> Csrrw i_csr | CSRRS -> Csrrs i_csr | CSRRC -> Csrrc i_csr
+  | CSRRWI -> Csrrwi i_csr_imm | CSRRSI -> Csrrsi i_csr_imm
+  | CSRRCI -> Csrrci i_csr_imm
   (* R-type *)
   | ADD -> Add r | SUB -> Sub r | SLT -> Slt r | SLTU -> Sltu r
   | AND -> And r | OR -> Or r | XOR -> Xor r | SLL -> Sll r
@@ -306,6 +342,20 @@ let pp_i_sys fmt { i_typ_sys_dst ; i_typ_sys_src; i_typ_sys_imm } =
     pp_reg i_typ_sys_dst
     i_typ_sys_imm
     pp_reg_int i_typ_sys_src
+
+let pp_i_csr fmt { i_typ_csr_dst ; i_typ_csr_addr; i_typ_csr_src } =
+  Format.fprintf fmt "%a,%ld,%a"
+    pp_reg i_typ_csr_dst
+    i_typ_csr_addr
+    pp_reg i_typ_csr_src
+
+let pp_i_csr_imm fmt
+    { i_typ_csr_imm_dst ; i_typ_csr_imm_addr; i_typ_csr_imm_imm }
+  =
+  Format.fprintf fmt "%a,%ld,%ld"
+    pp_reg i_typ_csr_imm_dst
+    i_typ_csr_imm_addr
+    i_typ_csr_imm_imm
 
 let pp_r fmt { r_typ_dst ; r_typ_src1 ; r_typ_src2 } =
   Format.fprintf fmt "%a,%a,%a"
@@ -355,6 +405,12 @@ let pp_objdump fmt t =
   | Fence i -> f "fence\t"; pp_i fmt i
   | Ecall i -> f "ecall\t"; pp_i_sys fmt i
   | Ebreak i -> f "ebreak\t"; pp_i_sys fmt i
+  | Csrrw i -> f "csrrw\t"; pp_i_csr fmt i
+  | Csrrs i -> f "csrrs\t"; pp_i_csr fmt i
+  | Csrrc i -> f "csrrc\t"; pp_i_csr fmt i
+  | Csrrwi i -> f "csrrwi\t"; pp_i_csr_imm fmt i
+  | Csrrsi i -> f "csrrsi\t"; pp_i_csr_imm fmt i
+  | Csrrci i -> f "csrrci\t"; pp_i_csr_imm fmt i
   (* R-type instructions *)
   | Add r -> f "add\t"; pp_r fmt r
   | Sub r -> f "sub\t"; pp_r fmt r

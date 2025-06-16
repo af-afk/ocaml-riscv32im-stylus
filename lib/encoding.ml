@@ -41,6 +41,33 @@ let encode_i_type_system op (_: Lifted.i_typ_sys)  =
   |> add_field Operation.mask_opcode_system 0 7
   |> Int32.of_int
 
+let encode_i_type_csr op
+    Lifted.{ i_typ_csr_dst; i_typ_csr_addr; i_typ_csr_src }
+  =
+  let csr_addr = Int32.to_int i_typ_csr_addr land 0xfff in
+  let funct3 = Lifted.get_funct3_mask op in
+  let opcode = Lifted.get_opcode_mask op in
+  add_field csr_addr 20 12 0
+  |> add_field (Registers.to_int i_typ_csr_src) 15 5
+  |> add_field funct3 12 3
+  |> add_field (Registers.to_int i_typ_csr_dst) 7 5
+  |> add_field opcode 0 7
+  |> Int32.of_int
+
+let encode_i_type_csr_imm op
+    Lifted.{ i_typ_csr_imm_dst; i_typ_csr_imm_addr; i_typ_csr_imm_imm }
+  =
+  let csr_addr = Int32.to_int i_typ_csr_imm_addr land 0xfff in
+  let imm5 = Int32.to_int i_typ_csr_imm_imm land 0x1f in
+  let funct3 = Lifted.get_funct3_mask op in
+  let opcode = Lifted.get_opcode_mask op in
+  add_field csr_addr 20 12 0
+  |> add_field imm5 15 5
+  |> add_field funct3 12 3
+  |> add_field (Registers.to_int i_typ_csr_imm_dst) 7 5
+  |> add_field opcode 0 7
+  |> Int32.of_int
+
 let encode_j_type op Lifted.{ j_typ_dst ; j_typ_imm } =
   let imm_21 = Int32.to_int (Int32.logand j_typ_imm 0x1fffffl) in
   let imm_20 = (imm_21 lsr 20) land 0x1 in
@@ -127,6 +154,15 @@ let encode =
   | Ecall i_typ_sys -> encode_i_type_system (Ecall i_typ_sys) i_typ_sys
   | Ebreak i_typ_sys -> encode_i_type_system (Ebreak i_typ_sys) i_typ_sys
   | Fence i_typ -> encode_i_type (Fence i_typ) i_typ
+  | Csrrw i_csr_typ -> encode_i_type_csr (Csrrw i_csr_typ) i_csr_typ
+  | Csrrc i_csr_typ -> encode_i_type_csr (Csrrc i_csr_typ) i_csr_typ
+  | Csrrs i_csr_typ -> encode_i_type_csr (Csrrs i_csr_typ) i_csr_typ
+  | Csrrwi i_csr_imm_typ ->
+    encode_i_type_csr_imm (Csrrwi i_csr_imm_typ) i_csr_imm_typ
+  | Csrrsi i_csr_imm_typ ->
+    encode_i_type_csr_imm (Csrrsi i_csr_imm_typ) i_csr_imm_typ
+  | Csrrci i_csr_imm_typ ->
+    encode_i_type_csr_imm (Csrrci i_csr_imm_typ) i_csr_imm_typ
   (* R-type *)
   | Add r_typ -> encode_r_type (Add r_typ) r_typ
   | Sub r_typ -> encode_r_type (Sub r_typ) r_typ
@@ -162,3 +198,4 @@ let encode =
   | Bltu b_typ -> encode_b_type (Bltu b_typ) b_typ
   | Bge b_typ -> encode_b_type (Bge b_typ) b_typ
   | Bgeu b_typ -> encode_b_type (Bgeu b_typ) b_typ
+

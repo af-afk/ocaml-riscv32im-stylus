@@ -2,6 +2,7 @@
 type t =
   { r: Registers.t [@default Registers.empty]
   ; b: Memory.t [@default Memory.empty]
+  ; c: Csrs.t [@default Csrs.empty]
   ; e: Ethereum.t [@default Ethereum.empty]
   ; cd_b: Calldata.t [@default Calldata.empty]
   ; rd_b: Calldata.t [@default Calldata.empty]
@@ -359,6 +360,50 @@ let step_remu t dst src1 src2 =
 
 let empty_fmt = Format.make_formatter (fun _ _ _ -> ()) (fun () -> ())
 
+let step_csrrw t dst addr src =
+  let { r ; c ; _ } = t in
+  bump_pc
+    { t with
+      r = Registers.update r dst (Csrs.get c addr)
+    ; c = Csrs.set c addr (Registers.get r src) }
+
+let step_csrrs t _ _ _ = bump_pc t
+
+let step_csrrc t _ _ _ = bump_pc t
+
+let step_csrrwi t dst addr imm =
+  let { r ; c ; _ } = t in
+  let c_v = Csrs.get c addr in
+  bump_pc
+    { t with
+      r = Registers.update r dst c_v
+    ; c = Csrs.set c addr imm }
+
+let step_csrrsi t dst addr imm =
+  Format.eprintf "CSRRSI HIT: dst: %a, addr: %ld, imm: %ld@."
+    Registers.pp_reg dst
+    addr
+    imm;  let { r ; c ; _ } = t in
+  let c_v = Csrs.get c addr in
+  let new_c_v = Int32.logor c_v imm in
+  bump_pc
+    { t with
+      r = Registers.update r dst c_v
+    ; c = Csrs.set c addr new_c_v }
+
+let step_csrrci t dst addr imm =
+  Format.eprintf "CSRRCI HIT: dst: %a, addr: %ld, imm: %ld@."
+    Registers.pp_reg dst
+    addr
+    imm;
+  let { r ; c ; _ } = t in
+  let c_v = Csrs.get c addr in
+  let new_c_v = Int32.logand c_v (Int32.lognot imm) in
+  bump_pc
+    { t with
+      r = Registers.update r dst c_v
+    ; c = Csrs.set c addr new_c_v }
+
 let step_lifted ?(fmt = empty_fmt) t f =
   let open Lifted in
   let t = { t with last_op = Some f } in
@@ -368,6 +413,13 @@ let step_lifted ?(fmt = empty_fmt) t f =
     f t i_typ_sft_dst i_typ_sft_src i_typ_sft_imm in
   let apply_i_sys { i_typ_sys_dst; i_typ_sys_src; i_typ_sys_imm } f =
     f t i_typ_sys_dst i_typ_sys_src i_typ_sys_imm in
+  let apply_i_csr { i_typ_csr_dst; i_typ_csr_addr; i_typ_csr_src } f =
+    f t i_typ_csr_dst i_typ_csr_addr i_typ_csr_src in
+  let apply_i_csr_imm
+      { i_typ_csr_imm_dst ; i_typ_csr_imm_addr; i_typ_csr_imm_imm }
+      f
+    =
+    f t i_typ_csr_imm_dst i_typ_csr_imm_addr i_typ_csr_imm_imm  in
   let apply_r { r_typ_dst; r_typ_src1; r_typ_src2 } f =
     f t r_typ_dst r_typ_src1 r_typ_src2 in
   let apply_u { u_typ_dst; u_typ_imm } f =
@@ -398,6 +450,12 @@ let step_lifted ?(fmt = empty_fmt) t f =
   | Fence f -> apply_i f step_fence
   | Ecall f -> apply_i_sys f (step_ecall fmt)
   | Ebreak f -> apply_i_sys f step_ebreak
+  | Csrrw f -> apply_i_csr f step_csrrw
+  | Csrrs f -> apply_i_csr f step_csrrs
+  | Csrrc f -> apply_i_csr f step_csrrc
+  | Csrrwi f -> apply_i_csr_imm f step_csrrwi
+  | Csrrsi f -> apply_i_csr_imm f step_csrrsi
+  | Csrrci f -> apply_i_csr_imm f step_csrrci
   (* R-type *)
   | Add f -> apply_r f step_add
   | Sub f -> apply_r f step_sub

@@ -44,6 +44,12 @@ let slti = q2o @@ QCheck2.Test.make
     (gen_i_registers_and_values `Slti)
     (fun { x ; y ; res ; _ } -> res = if x < y then 1l else 0l)
 
+let sltu = q2o @@ QCheck2.Test.make
+    ~name:"Sltu"
+    ~print:sprint_gen_i_registers_vals
+    (gen_i_registers_and_values `Slti)
+    (fun { x ; y ; res ; _ } -> res = if x < y then 1l else 0l)
+
 let sltiu = q2o @@ QCheck2.Test.make
     ~name:"Sltiu"
     ~print:sprint_gen_i_registers_vals
@@ -117,6 +123,15 @@ let add = q2o @@ QCheck2.Test.make
        res = Int32.add x y
     )
 
+let and_ = q2o @@ QCheck2.Test.make
+    ~name:"And"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `And)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.logand x y
+    )
+
 let sub = q2o @@ QCheck2.Test.make
     ~name:"Sub"
     ~print:sprint_gen_r_registers_vals
@@ -171,6 +186,15 @@ let slt = q2o @@ QCheck2.Test.make
     (fun { x ; y ; src1 ; src2 ; res ; _ } ->
        QCheck2.assume (not (Registers.equal_reg src1 src2));
        res = if Int32.compare x y < 0 then 1l else 0l
+    )
+
+let or_ = q2o @@ QCheck2.Test.make
+    ~name:"Or"
+    ~print:sprint_gen_r_registers_vals
+    (gen_r_registers_and_values `Or)
+    (fun { x ; y ; src1 ; src2 ; res ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       res = Int32.logor x y
     )
 
 let jal =
@@ -247,6 +271,19 @@ let bltu =
     (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
        QCheck2.assume (not (Registers.equal_reg src1 src2));
        if (Int32.unsigned_compare x y < 0) then
+         after_pc = before_pc + imm
+       else after_pc = before_pc + 4l
+    )
+
+let bgeu =
+  let open Simulator in
+  q2o @@ QCheck2.Test.make
+    ~name:"Bgeu"
+    ~print:sprint_gen_b_vals
+    (gen_b_registers_and_values `Bgeu)
+    (fun { src1 ; src2 ; imm ; x ; y ; before_s = { pc = before_pc; _ } ; after_s = { pc = after_pc ; _  } ; _ } ->
+       QCheck2.assume (not (Registers.equal_reg src1 src2));
+       if (Int32.unsigned_compare x y > 0) then
          after_pc = before_pc + imm
        else after_pc = before_pc + 4l
     )
@@ -366,7 +403,8 @@ let sh =
        QCheck2.assume (not (Registers.equal_reg src1 src2));
        let op = Lifted.(Sh { s_typ_src1 = src1 ; s_typ_src2 = src2 ; s_typ_imm = 0l } ) in
        assert_equal op (Lifted.from_word 0l (Int32.to_int (Encoding.encode op)));
-       let Simulator.{ r ; b ; _ } = Simulator.step_lifted sim op in
+       let sim = Simulator.step_lifted sim op in
+       let Simulator.{ r ; b ; _ } = sim in
        let addr = Int32.of_int addr in
        assert_equal addr (Registers.get r src1);
        assert_equal word (Registers.get r src2);
@@ -374,6 +412,10 @@ let sh =
        let exp_sign_extended = Int32.shift_right (Int32.shift_left exp 16) 16 in
        assert_equal exp_sign_extended (Memory.load_halfword b (Int32.to_int addr));
        assert_equal exp (Memory.load_halfword_unsigned_from_sim b addr);
+       let Simulator.{ r ; _ } = Simulator.step_lifted
+           sim
+           (Lifted.(Lh { i_typ_dst = src2 ; i_typ_src = src1 ; i_typ_imm = 0l } )) in
+       assert_equal exp_sign_extended (Registers.get r src2);
        true
     )
 
@@ -382,6 +424,7 @@ let test risc_hello_world stack_top pc =
   >:::[ should_simulate_program_ok risc_hello_world stack_top pc
       ; addi
       ; slti
+      ; sltu
       ; sltiu
       ; andi
       ; ori
@@ -391,6 +434,7 @@ let test risc_hello_world stack_top pc =
       ; srli
       ; srai
       ; add
+      ; and_
       ; sub
       ; xor
       ; mul
@@ -407,4 +451,6 @@ let test risc_hello_world stack_top pc =
       ; ecall
       ; sw
       ; sh
+      ; or_
+      ; bgeu
       ]

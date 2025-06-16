@@ -1,7 +1,7 @@
 
 open Riscv32im_stylus
 
-let max_cycles = 100
+let max_cycles = 10000
 
 module Cycle_detection = struct
   type t = ((int32 * Registers.t) * int) list [@@deriving show]
@@ -107,14 +107,15 @@ let () =
           ~fmt:fmt_stderr
           !sim;
       match last_op with
-      | Some op -> last_ops :=
+      | Some op ->
+        last_ops :=
           List.sort_uniq Helpers.compare_lifted_name (op :: !last_ops)
       | None -> ();
         Format.pp_force_newline fmt_stderr ();
         incr count
     done
   with
-  | Control.Exited _ -> print_endline "ebreak"
+  | Control.Exited _ -> ()
   | err -> (
       print_cleanup 1;
       raise err

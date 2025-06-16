@@ -6,6 +6,7 @@ operations. It's intended to be used with Arbitrum Stylus, with a forked SDK.
 
 ## TODOs
 
+- [ ] Finish basic CSR support with zeroes
 - [ ] Functional view over the memory and calldata types
 - [ ] Finish testing everything
 - [ ] Tighten up the use of the int to int32 types (this is abit messy)

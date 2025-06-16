@@ -25,7 +25,11 @@ let random_byte_store_read =
        let addr = Int32.of_int addr in
        let b = Int32.logand w 0xffl in
        Memory.store_byte_sim m addr b;
-       b = Memory.load_byte_sim m addr
+       assert_equal b (Memory.load_byte_unsigned_sim m addr);
+       let exp_byte = Int32.logand b 0x000000ffl in
+       let exp_ext = Int32.shift_right (Int32.shift_left exp_byte 24) 24 in
+       assert_equal exp_ext (Memory.load_byte m (Int32.to_int addr));
+       true
     )
 
 let random_word_store_read =
