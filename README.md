@@ -10,16 +10,18 @@ To build the simulator, the following is needed:
 
 - OCaml
 
-You can install the OCaml programming language from the
-website[http://ocaml.org/](http://ocaml.org/)
+You can install the OCaml programming language using a OS package manager easily using
+instructions from the [website](http://ocaml.org/).
 
 - Dune
 
-You can install the Dune package manager with [these intsructions](https://dune.build/install).
+You can install the Dune package manager with [these instructions](https://dune.build/install).
 
 - binutils-dev
 
-This can be installed using any major package manager quickly.
+It's best to figure out how to do this based on what you use locally, on Debian:
+
+	sudo apt-get install -y binutils-dev
 
 ## Building
 
@@ -44,7 +46,7 @@ A reference repository will be made available soon with instructions on building
 
 The following environment calls are supported:
 
-- [ ] Storage loads/stores
+- [X] Storage loads/stores
 - [ ] Calldata loading
 
 The following won't be supported:
