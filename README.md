@@ -47,17 +47,19 @@ A reference repository will be made available soon with instructions on building
 The following environment calls are supported:
 
 - [X] Storage loads/stores
-- [ ] Calldata loading
+- [ ] Calldata loading and return data
 
 The following won't be supported:
 
-- [ ] Calling
+- Calling
+- Sending
 
 ## TODOs
 
 - [ ] Read actual program headers instead of sections so stripped binaries work
 
-I had some linking issues that prevented me from using a approach I wanted here.
+I had some linking issues that prevented me from using a approach I wanted here. So the
+section haeders is the current approach.
 
 - [ ] Finish basic CSR support with zeroes
 
