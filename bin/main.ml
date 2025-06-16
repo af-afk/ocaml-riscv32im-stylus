@@ -1,7 +1,7 @@
 
 open Riscv32im_stylus
 
-let max_cycles = 10000
+let max_cycles = 10
 
 module Cycle_detection = struct
   type t = ((int32 * Registers.t) * int) list [@@deriving show]
@@ -115,7 +115,7 @@ let () =
         incr count
     done
   with
-  | Control.Exited _ -> ()
+  | Control.Exited _ -> Format.eprintf "%a@." Ethereum.pp !sim.e;
   | err -> (
       print_cleanup 1;
       raise err

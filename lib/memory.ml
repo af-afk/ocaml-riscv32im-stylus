@@ -93,7 +93,6 @@ let of_path name =
     with
     | Some sym -> Int32.of_int (Libbinutils.asymbol_value sym)
     | None -> invalid_arg "No symbol titled _start" in
-
   let sections =
     Libbinutils.asections_seq bfd |> Seq.filter_map (fun sect ->
         let name = Libbinutils.section_name sect in
@@ -149,9 +148,7 @@ let of_path name =
         else
           acc in
       let acc_with_section = section :: acc_with_gap in
-      fill_gaps acc_with_section section_end rest
-  in
-
+      fill_gaps acc_with_section section_end rest in
   let all_regions = fill_gaps [] ram_start sorted_sections in
   let stack_top = ram_end - 0x100 in
   bfd, (all_regions), stack_top, pc
@@ -201,12 +198,6 @@ let load_into_str regions addr len =
 let load_into_str_sim regions addr len =
   load_into_str regions (convert_to_int addr) len
 
-let load_into_array regions addr len =
-  Array.init (convert_to_int len) (
-    convert_to_int
-    $$ load_byte regions
-    $$ (+) addr)
-
 let load_byte_unsigned regions addr =
   match find_region regions addr with
   | Some { mem; base; readable; _ } when readable ->
@@ -216,6 +207,12 @@ let load_byte_unsigned regions addr =
   | None -> failwith (
       Printf.sprintf
         "Unmapped load byte unsigned memory access addr: %l(0x%x)"  addr addr)
+
+let load_into_array regions addr len =
+  Array.init (convert_to_int len) (
+    convert_to_int
+    $$ load_byte regions
+    $$ (+) addr)
 
 let load_byte_unsigned_sim regions =
   load_byte_unsigned regions $$ convert_to_int

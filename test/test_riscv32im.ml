@@ -13,5 +13,6 @@ let () =
     "Test the riscv32im simulator"
     >:::[ Test_encoding.test
         ; Test_memory.test risc_hello_world test_file
-        ; Test_opcodes.test risc_hello_world stack_top pc ]
+        ; Test_opcodes.test risc_hello_world stack_top pc
+        ; Test_ethereum.test ]
   )
