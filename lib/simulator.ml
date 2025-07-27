@@ -1,14 +1,5 @@
 
-type t =
-  { r: Registers.t [@default Registers.empty]
-  ; b: Memory.t [@default Memory.empty]
-  ; c: Csrs.t [@default Csrs.empty]
-  ; e: Ethereum.t [@default Ethereum.empty]
-  ; cd_b: Calldata.t [@default Calldata.empty]
-  ; rd_b: Calldata.t [@default Calldata.empty]
-  ; pc: int32 [@default 0l]
-  ; last_op: Lifted.t option [@default None]}
-[@@deriving show, make, qcheck2]
+open Cpu
 
 let (+) = Int32.add
 
@@ -245,55 +236,9 @@ let step_bgeu t src1 src2 imm =
 
 let step_fence t _ _ _ = bump_pc t
 
-(* Outputs a string from the memory range given in a0, with length in a1. *)
-let ecall_log_no = 0l
+let ecall_log_no = 35l
 
-(* Store a word to the Ethereum storage tree. *)
-let ecall_ethereum_store_no = 1l
-
-(* Load a word from the Ethereum storage tree. *)
-let ecall_ethereum_load_no = 2l
-
-(* Get the size of the arguments that were passed to the contract. *)
-let ecall_ethereum_args_no = 3l
-
-(* Write the output from this program. *)
-let ecall_ethereum_output_no = 4l
-
-let ecall_log fmt t from length =
-  let { b; _ } = t in
-  Format.fprintf fmt "%s@." (Memory.load_into_str_sim b from length);
-  t
-
-let ecall_ethereum_store t ptr_key ptr_val =
-  let { e; b; _ } = t in
-  let ptr_key = to_int ptr_key in
-  let ptr_val = to_int ptr_val in
-  let key = Memory.load_into_array b ptr_key 32l in
-  let key = Ethereum.Word.of_array key in
-  let v =
-    Ethereum.Word.of_array (Memory.load_into_array b ptr_val 32l) in
-  { t with e = Ethereum.store_word e key v }
-
-let ecall_ethereum_load t ptr_key ptr_write =
-  let { e; b; _ } = t in
-  let ptr_key = to_int ptr_key in
-  let ptr_write = to_int ptr_write in
-  let key =
-    Ethereum.Word.of_array (Memory.load_into_array b ptr_key 32l) in
-  let v = Ethereum.load_word e key in
-  Memory.store_array b ptr_write (Ethereum.Word.to_array v);
-  t
-
-let step_ecall fmt t _ _ _ =
-  let { r; _ } = t in
-  let a0 = Registers.get r `A0 in
-  let a1 = Registers.get r `A1 in
-  match Registers.get r `A7 with
-  | s when s = ecall_log_no -> bump_pc (ecall_log fmt t a0 a1)
-  | s when s = ecall_ethereum_store_no -> bump_pc (ecall_ethereum_store t a0 a1)
-  | s when s = ecall_ethereum_load_no -> bump_pc (ecall_ethereum_load t a0 a1)
-  | r -> failwith (Printf.sprintf "Bad register: %ld" r)
+let step_ecall fmt t _ _ _ = Ecalls.ecall fmt t
 
 let step_ebreak _ _ _ _ =  Control.exit_ebreak ()
 
@@ -367,42 +312,6 @@ let step_remu t dst src1 src2 =
 
 let empty_fmt = Format.make_formatter (fun _ _ _ -> ()) (fun () -> ())
 
-let step_csrrw t dst addr src =
-  let { r ; c ; _ } = t in
-  bump_pc
-    { t with
-      r = Registers.update r dst (Csrs.get c addr)
-    ; c = Csrs.set c addr (Registers.get r src) }
-
-let step_csrrs t _ _ _ = bump_pc t
-
-let step_csrrc t _ _ _ = bump_pc t
-
-let step_csrrwi t dst addr imm =
-  let { r ; c ; _ } = t in
-  let c_v = Csrs.get c addr in
-  bump_pc
-    { t with
-      r = Registers.update r dst c_v
-    ; c = Csrs.set c addr imm }
-
-let step_csrrsi t dst addr imm =  let { r ; c ; _ } = t in
-  let c_v = Csrs.get c addr in
-  let new_c_v = Int32.logor c_v imm in
-  bump_pc
-    { t with
-      r = Registers.update r dst c_v
-    ; c = Csrs.set c addr new_c_v }
-
-let step_csrrci t dst addr imm =
-  let { r ; c ; _ } = t in
-  let c_v = Csrs.get c addr in
-  let new_c_v = Int32.logand c_v (Int32.lognot imm) in
-  bump_pc
-    { t with
-      r = Registers.update r dst c_v
-    ; c = Csrs.set c addr new_c_v }
-
 let step_lifted ?(fmt = empty_fmt) t f =
   let open Lifted in
   let t = { t with last_op = Some f } in
@@ -412,13 +321,6 @@ let step_lifted ?(fmt = empty_fmt) t f =
     f t i_typ_sft_dst i_typ_sft_src i_typ_sft_imm in
   let apply_i_sys { i_typ_sys_dst; i_typ_sys_src; i_typ_sys_imm } f =
     f t i_typ_sys_dst i_typ_sys_src i_typ_sys_imm in
-  let apply_i_csr { i_typ_csr_dst; i_typ_csr_addr; i_typ_csr_src } f =
-    f t i_typ_csr_dst i_typ_csr_addr i_typ_csr_src in
-  let apply_i_csr_imm
-      { i_typ_csr_imm_dst ; i_typ_csr_imm_addr; i_typ_csr_imm_imm }
-      f
-    =
-    f t i_typ_csr_imm_dst i_typ_csr_imm_addr i_typ_csr_imm_imm  in
   let apply_r { r_typ_dst; r_typ_src1; r_typ_src2 } f =
     f t r_typ_dst r_typ_src1 r_typ_src2 in
   let apply_u { u_typ_dst; u_typ_imm } f =
@@ -449,12 +351,6 @@ let step_lifted ?(fmt = empty_fmt) t f =
   | Fence f -> apply_i f step_fence
   | Ecall f -> apply_i_sys f (step_ecall fmt)
   | Ebreak f -> apply_i_sys f step_ebreak
-  | Csrrw f -> apply_i_csr f step_csrrw
-  | Csrrs f -> apply_i_csr f step_csrrs
-  | Csrrc f -> apply_i_csr f step_csrrc
-  | Csrrwi f -> apply_i_csr_imm f step_csrrwi
-  | Csrrsi f -> apply_i_csr_imm f step_csrrsi
-  | Csrrci f -> apply_i_csr_imm f step_csrrci
   (* R-type *)
   | Add f -> apply_r f step_add
   | Sub f -> apply_r f step_sub

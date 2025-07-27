@@ -75,11 +75,11 @@ let () =
   let circ_lifted = Circ_lifted.create () in
   let circ_pc = Circ_hex.create () in
   let count = ref 0 in
-  let sim = ref (Simulator.make ~b:mem ~r:registers ~pc ()) in
+  let sim = ref (Cpu.make ~b:mem ~r:registers ~pc ()) in
   let cycles = ref Cycle_detection.empty in
   let last_ops = ref [] in
   let print_cleanup _ = (
-    Simulator.pp fmt_stderr !sim;
+    Cpu.pp fmt_stderr !sim;
     (* TODO make cleaner *)
     Format.fprintf fmt_stderr "@.CYCLE DETECTION: %a"
       Cycle_detection.pp !cycles;
@@ -97,7 +97,7 @@ let () =
   Sys.set_signal Sys.sigusr1 (Sys.Signal_handle print_cleanup);
   try
     while true do
-      let Simulator.{ pc; r; last_op ; _ } = !sim in
+      let Cpu.{ pc; r; last_op ; _ } = !sim in
       Circ_registers.push circ_registers r;
       cycles := Cycle_detection.track !cycles pc r;
       Circ_hex.push circ_pc pc;

@@ -51,13 +51,7 @@ let compare_lifted_name x y =
     | Blt _ -> 44
     | Bltu _ -> 45
     | Bge _ -> 46
-    | Bgeu _ -> 47
-    | Csrrw _ -> 48
-    | Csrrs _ -> 49
-    | Csrrc _ -> 50
-    | Csrrwi _ -> 51
-    | Csrrsi _ -> 52
-    | Csrrci _ -> 53  in
+    | Bgeu _ -> 47 in
   let tag1 = get_constructor_tag x in
   let tag2 = get_constructor_tag y in
   compare tag1 tag2

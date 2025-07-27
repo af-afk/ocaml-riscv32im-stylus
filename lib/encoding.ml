@@ -154,15 +154,6 @@ let encode =
   | Ecall i_typ_sys -> encode_i_type_system (Ecall i_typ_sys) i_typ_sys
   | Ebreak i_typ_sys -> encode_i_type_system (Ebreak i_typ_sys) i_typ_sys
   | Fence i_typ -> encode_i_type (Fence i_typ) i_typ
-  | Csrrw i_csr_typ -> encode_i_type_csr (Csrrw i_csr_typ) i_csr_typ
-  | Csrrc i_csr_typ -> encode_i_type_csr (Csrrc i_csr_typ) i_csr_typ
-  | Csrrs i_csr_typ -> encode_i_type_csr (Csrrs i_csr_typ) i_csr_typ
-  | Csrrwi i_csr_imm_typ ->
-    encode_i_type_csr_imm (Csrrwi i_csr_imm_typ) i_csr_imm_typ
-  | Csrrsi i_csr_imm_typ ->
-    encode_i_type_csr_imm (Csrrsi i_csr_imm_typ) i_csr_imm_typ
-  | Csrrci i_csr_imm_typ ->
-    encode_i_type_csr_imm (Csrrci i_csr_imm_typ) i_csr_imm_typ
   (* R-type *)
   | Add r_typ -> encode_r_type (Add r_typ) r_typ
   | Sub r_typ -> encode_r_type (Sub r_typ) r_typ

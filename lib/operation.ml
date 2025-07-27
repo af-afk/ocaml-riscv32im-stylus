@@ -149,13 +149,6 @@ type t =
   | ECALL
   (** Cause a debugger break to the environment. *)
   | EBREAK
-  (* ~~~ CONTROL AND STATUS REGISTERS  ~~~ *)
-  | CSRRW
-  | CSRRS
-  | CSRRC
-  | CSRRWI
-  | CSRRSI
-  | CSRRCI
 [@@deriving eq, sexp, show, qcheck2]
 
 (* ~~~ INTERMEDIATE OPERATIONS ~~~ *)
@@ -239,10 +232,3 @@ let mask_opcode_system = 0x73
 
 let mask_funct12_ecall = 0
 let mask_funct12_ebreak = 1
-
-let mask_funct3_csrrw = 0x1
-let mask_funct3_csrrs = 0x2
-let mask_funct3_csrrc = 0x3
-let mask_funct3_csrrwi = 0x5
-let mask_funct3_csrrsi = 0x6
-let mask_funct3_csrrci = 0x7

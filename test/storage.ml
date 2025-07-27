@@ -21,7 +21,7 @@ let gen_random_word m =
 let empty_fmt =
   Format.make_formatter (fun _ _ _ -> ()) (fun () -> ())
 
-let test_last_op Simulator.{ last_op ; _ } op =
+let test_last_op Cpu.{ last_op ; _ } op =
   (*
    * Double check somehow we didn't execute the wrong operation last.
    * Useful if we're working with signed and unsigned op variants.
@@ -45,8 +45,8 @@ type test_i =
   ; dst: Registers.reg
   ; x: int32
   ; y: int32
-  ; before_s: Simulator.t
-  ; after_s: Simulator.t
+  ; before_s: Cpu.t
+  ; after_s: Cpu.t
   ; res: int32
   ; mem: Memory.t option
   ; word: int }
@@ -61,7 +61,7 @@ let gen_i_registers ~lifted_f ~tag_f tag =
   let i = lifted_f dst src y in
   let o = tag_f tag i in
   let* r = Registers.gen in
-  let before_s = Simulator.make ~r: Registers.(update r src x) ~pc () in
+  let before_s = Cpu.make ~r: Registers.(update r src x) ~pc () in
   let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
@@ -107,7 +107,7 @@ let sprint_gen_i_registers_vals { src ; dst ; x ; y ; after_s ; res ; word ;_ } 
     y
     Registers.pp_reg src
     Registers.pp_reg dst
-    Simulator.pp after_s
+    Cpu.pp after_s
     res
     word
 
@@ -119,8 +119,8 @@ type test_r =
   ; src2: Registers.reg
   ; x: int32
   ; y: int32
-  ; before_s: Simulator.t
-  ; after_s: Simulator.t
+  ; before_s: Cpu.t
+  ; after_s: Cpu.t
   ; res: int32 }
 
 let gen_r_registers_and_values tag =
@@ -134,7 +134,7 @@ let gen_r_registers_and_values tag =
   let r = Registers.(update (update r src1 x) src2 y) in
   let i = Lifted.{ r_typ_dst = dst; r_typ_src1 = src1; r_typ_src2 = src2 } in
   let o = Opcodes.tag_r tag i in
-  let before_s = Simulator.make ~r () in
+  let before_s = Cpu.make ~r () in
   let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
@@ -147,7 +147,7 @@ let sprint_gen_r_registers_vals { x ; y ; src1 ; src2 ; dst ; after_s ; res; _} 
     Registers.pp_reg src1
     Registers.pp_reg src2
     Registers.pp_reg dst
-    Simulator.pp after_s
+    Cpu.pp after_s
     res
 
 type test_j =
@@ -155,8 +155,8 @@ type test_j =
   ; r: Registers.t
   ; dst: Registers.reg
   ; imm: int32
-  ; before_s: Simulator.t
-  ; after_s: Simulator.t
+  ; before_s: Cpu.t
+  ; after_s: Cpu.t
   ; res: int32 }
 
 let gen_j_values tag =
@@ -167,7 +167,7 @@ let gen_j_values tag =
   let* r = Registers.gen in
   let i = Lifted.{ j_typ_dst = dst; j_typ_imm = imm } in
   let o = Opcodes.tag_j tag i in
-  let before_s = Simulator.make ~r ~pc () in
+  let before_s = Cpu.make ~r ~pc () in
   let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
@@ -177,7 +177,7 @@ let sprint_gen_j_vals { dst ; imm ; after_s ; res ; _ } =
   Format.asprintf "Imm: %ld, dst: %a, after simulator: %a, result: %ld"
     imm
     Registers.pp_reg dst
-    Simulator.pp after_s
+    Cpu.pp after_s
     res
 
 type test_u =
@@ -185,8 +185,8 @@ type test_u =
   ; r: Registers.t
   ; dst: Registers.reg
   ; imm: int32
-  ; before_s: Simulator.t
-  ; after_s: Simulator.t
+  ; before_s: Cpu.t
+  ; after_s: Cpu.t
   ; res: int32 }
 
 let gen_u_values tag =
@@ -197,7 +197,7 @@ let gen_u_values tag =
   let* r = Registers.gen in
   let i = Lifted.{ u_typ_dst = dst; u_typ_imm = imm } in
   let o = Opcodes.tag_u tag i in
-  let before_s = Simulator.make ~r ~pc () in
+  let before_s = Cpu.make ~r ~pc () in
   let after_s = Simulator.step_lifted before_s o in
   let res = Registers.get after_s.r dst in
   test_last_op after_s o;
@@ -207,7 +207,7 @@ let sprint_gen_u_vals { dst ; imm ; after_s ; res ; _ } =
   Format.asprintf "Imm: %ld, dst: %a, after simulator: %a, result: %ld"
     imm
     Registers.pp_reg dst
-    Simulator.pp after_s
+    Cpu.pp after_s
     res
 
 type test_b =
@@ -218,8 +218,8 @@ type test_b =
   ; src1: Registers.reg
   ; src2: Registers.reg
   ; imm: int32
-  ; before_s: Simulator.t
-  ; after_s: Simulator.t }
+  ; before_s: Cpu.t
+  ; after_s: Cpu.t }
 
 let gen_b_registers_and_values tag =
   let open QCheck2.Gen in
@@ -233,7 +233,7 @@ let gen_b_registers_and_values tag =
   let r = Registers.(update (update r src1 x) src2 y) in
   let i = Lifted.{ b_typ_src1 = src1 ; b_typ_src2 = src2 ; b_typ_imm = imm } in
   let o = Opcodes.tag_b tag i in
-  let before_s = Simulator.make ~r ~pc () in
+  let before_s = Cpu.make ~r ~pc () in
   let after_s = Simulator.step_lifted before_s o in
   test_last_op after_s o;
   return { x ; y ; o ; r ; src1 ; src2 ; imm ; before_s ; after_s }
@@ -245,5 +245,4 @@ let sprint_gen_b_vals { x ; y ; src1 ; src2 ; imm ; after_s ; _ } =
     Registers.pp_reg src1
     Registers.pp_reg src2
     imm
-    Simulator.pp after_s
-
+    Cpu.pp after_s

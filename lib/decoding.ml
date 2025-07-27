@@ -148,18 +148,6 @@ let unpack_operation w =
        ECALL
      | 0, funct12 when funct12 = mask_funct12_ebreak ->
        EBREAK
-     | funct3, _ when funct3 = mask_funct3_csrrw ->
-       CSRRW
-     | funct3, _ when funct3 = mask_funct3_csrrs ->
-       CSRRS
-     | funct3, _ when funct3 = mask_funct3_csrrc ->
-       CSRRC
-     | funct3, _ when funct3 = mask_funct3_csrrwi ->
-       CSRRWI
-     | funct3, _ when funct3 = mask_funct3_csrrsi ->
-       CSRRSI
-     | funct3, _ when funct3 = mask_funct3_csrrci ->
-       CSRRCI
      | _ -> invalid_arg "invalid SYSTEM variant"
     )
   | _ -> invalid_arg (Printf.sprintf "unknown op: %x" w)
@@ -214,12 +202,6 @@ let from loc w =
     ; rs1 = u 15 5
     ; imm = Int32.of_int (u 20 5) }
   | ECALL | EBREAK -> { t with rd = 0; rs1 = 0; imm = 0l }
-  | CSRRW | CSRRS | CSRRC ->
-    let csr = Int32.of_int (u 20 12) in
-    { t with rd = u 7 5; rs1 = u 15 5; imm = csr }
-  | CSRRWI | CSRRSI | CSRRCI ->
-    let csr = Int32.of_int (u 20 12) in
-    { t with rd = u 7 5; rs1 = u 15 5; imm = csr }
   | FENCE ->
     let fence_bits = ((u 28 4) lsl 8) lor ((u 24 4) lsl 4) lor (u 20 4) in
     let imm = sign_extend_12 (Int32.of_int fence_bits) in
