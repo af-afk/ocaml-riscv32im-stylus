@@ -36,12 +36,6 @@ The simplest use is with a test executable, test/risc-hello-world:
 
 	./_build/default/bin/main.exe test/risc-hello-world
 
-This should exit normally withoua ny message. To test storage writing and reading:
-
-	./_build/default/bin/main.exe test/storage-write-read-print
-
-A reference repository will be made available soon with instructions on building.
-
 ## Supported environment calls
 
 The following environment calls are supported:

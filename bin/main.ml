@@ -1,7 +1,7 @@
 
 open Riscv32im_stylus
 
-let max_cycles = 10
+let max_cycles = 100
 
 module Cycle_detection = struct
   type t = ((int32 * Registers.t) * int) list [@@deriving show]
