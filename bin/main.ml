@@ -115,7 +115,12 @@ let () =
         incr count
     done
   with
-  | Control.Exited _ -> ()
+  | Control.Exited _ ->
+    let Cpu.{ e_rd ; r = Registers.{ t_r_a0 ; _ } ; _ } = !sim in
+    Format.printf "%a@." Ethereum_cd.pp e_rd;
+    (* A0 is used as the register for the return status. *)
+    Printf.eprintf "contract exit %ld\n" t_r_a0;
+    exit (Int32.to_int t_r_a0)
   | err -> (
       print_cleanup 1;
       raise err

@@ -29,8 +29,10 @@ let should_simulate_program_ok mem stack_top pc cd =
     assert_failure "Didn't exit!"
   with Control.Exited `Ebreak ->
     (* Check the status code by checking A0. Should be 0. *)
-    let Cpu.{ r = Registers.{ t_r_a0 ; _ } ; _ } = !sim in
-    if not (t_r_a0 = 0l) then failwith (Format.sprintf "Bad a0 status: %ld" t_r_a0);
+    let Cpu.{ e_rd ; r = Registers.{ t_r_a0 ; _ } ; _ } = !sim in
+    if not (t_r_a0 = 0l) then
+      failwith (Format.sprintf "Bad a0 status: %ld" t_r_a0);
+    Format.eprintf "%a@." Ethereum_cd.pp e_rd;
     ()
 
 let addi =
