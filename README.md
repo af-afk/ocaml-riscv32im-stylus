@@ -34,7 +34,25 @@ tool takes a smple path to load. The program can exit by using EBREAK.
 
 The simplest use is with a test executable, test/risc-hello-world:
 
-	./_build/default/bin/main.exe test/risc-hello-world
+	./_build/default/bin/main.exe test/risc-hello-world $(cast calldata 'hello()')
+
+This contains the contract code:
+
+```rust
+#[entrypoint]
+#[storage]
+struct Storage {
+    pub message: StorageString,
+}
+
+#[public]
+impl Storage {
+    pub fn hello(&mut self) -> String {
+        self.message.set_str("Hello!");
+        self.message.get_string()
+    }
+}
+```
 
 ## Supported environment calls
 
