@@ -19,7 +19,8 @@ let make_ounit_formatter ctx =
 let should_simulate_program_ok mem stack_top pc cd =
   "Should simulate reference" >:: fun ctx ->
   let registers =
-    { Registers.empty_spike with t_r_sp = Int32.of_int stack_top } in
+    { Registers.empty_spike with t_r_sp = Int32.of_int stack_top }
+  in
   let sim = ref (Cpu.make ~b:mem ~r:registers ~e_cd:cd ~pc ()) in
   try
     while true do
@@ -29,10 +30,9 @@ let should_simulate_program_ok mem stack_top pc cd =
     assert_failure "Didn't exit!"
   with Control.Exited `Ebreak ->
     (* Check the status code by checking A0. Should be 0. *)
-    let Cpu.{ e_rd ; r = Registers.{ t_r_a0 ; _ } ; _ } = !sim in
+    let Cpu.{ r = Registers.{ t_r_a0; _ }; _ } = !sim in
     if not (t_r_a0 = 0l) then
       failwith (Format.sprintf "Bad a0 status: %ld" t_r_a0);
-    Format.eprintf "%a@." Ethereum_cd.pp e_rd;
     ()
 
 let addi =
@@ -444,8 +444,45 @@ let test risc_hello_world stack_top pc =
   "Opcodes"
   >::: [
          should_simulate_program_ok risc_hello_world stack_top pc
-           (* This is "hello()" in calldata: *)
-           [| 0x19l; 0xffl; 0x1dl; 0x21l |];
+           (* This is "hello(uint256) 123" in calldata: *)
+           [|
+             0xb0l;
+             0xf0l;
+             0xc9l;
+             0x6al;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x00l;
+             0x7bl;
+           |];
          addi;
          slti;
          sltu;

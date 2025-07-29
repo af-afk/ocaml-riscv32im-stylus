@@ -7,5 +7,5 @@ let gen =
 let empty = [||]
 
 let pp fmt arr =
-   Format.fprintf fmt "0x";
-  Array.iter (Format.fprintf fmt "%lx") arr
+  Format.fprintf fmt "0x";
+  Array.iter (Format.fprintf fmt "%02lx") arr

@@ -34,7 +34,7 @@ tool takes a smple path to load. The program can exit by using EBREAK.
 
 The simplest use is with a test executable, test/risc-hello-world:
 
-	./_build/default/bin/main.exe test/risc-hello-world $(cast calldata 'hello()')
+	./_build/default/bin/main.exe test/risc-hello-world $(cast calldata 'hello(uint256)' 123)
 
 This contains the contract code:
 
@@ -42,14 +42,14 @@ This contains the contract code:
 #[entrypoint]
 #[storage]
 struct Storage {
-    pub message: StorageString,
+    pub message: StorageU256,
 }
 
 #[public]
 impl Storage {
-    pub fn hello(&mut self) -> String {
-        self.message.set_str("Hello!");
-        self.message.get_string()
+    pub fn hello(&mut self, x: U256) -> U256 {
+        self.message.set(x);
+        self.message.get()
     }
 }
 ```

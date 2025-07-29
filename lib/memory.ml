@@ -55,6 +55,20 @@ module Region = struct
           self (i + 1)
       ) 0 in
     return m
+
+  let gen_evm_word_pair =
+    let open QCheck2.Gen in
+    let* desc = string_small_of printable in
+    let size = 64 in
+    let m = create ~desc ~base:0 ~size () in
+    let* _ = fix (fun self i ->
+        if i >= size then pure ()
+        else
+          let* v = int in
+          let () = Bigarray.Array1.set m.mem i v in
+          self (i + 1)
+      ) 0 in
+    return m
 end
 
 type t = Region.t list [@@deriving show]
@@ -78,6 +92,11 @@ let gen =
       let new_region = Region.{ r with base = next_base } in
       make (new_region :: acc) (next_base + new_region.size) rest in
   make [] 0 sorted
+
+let gen_evm_word_pair =
+  let open QCheck2.Gen in
+  let* x = Region.gen_evm_word_pair in
+  return [x]
 
 let ($$) g f x = g (f x)
 

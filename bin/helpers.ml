@@ -77,4 +77,5 @@ let ethereum_cd_of_hex s =
     let low = hex_char_to_int (String.get s (hex_idx + 1)) in
     Array.set arr i (Int32.of_int ((high * 16) + low))
   done;
+    Format.eprintf "arr: %a@." Ethereum_cd.pp arr;
   arr
