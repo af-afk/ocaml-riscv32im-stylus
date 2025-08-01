@@ -1,6 +1,12 @@
 open Riscv32im_stylus
 open OUnit2
 
+let gen_evm_word =
+  let open QCheck2.Gen in
+  let* w = Ethereum_word.gen in
+  let* m = Memory.gen_evm_word in
+  return (w, m)
+
 let gen_rand_pair_mem =
   let open QCheck2.Gen in
   let* x = Ethereum_word.gen in
@@ -10,7 +16,29 @@ let gen_rand_pair_mem =
 
 let pp_arr fmt arr =
   Format.fprintf fmt "0x";
-  Array.iter (Format.fprintf fmt "%02lx") arr
+  Array.iter (Format.fprintf fmt "%02x") arr
+
+let to_and_from_word =
+  QCheck_ounit.to_ounit2_test
+  @@ QCheck2.Test.make ~name:"Eth word to and from (no array)"
+       ~print:(fun (w, w') ->
+         Format.asprintf "%a != %a" Ethereum_word.pp w Ethereum_word.pp w')
+       (let open QCheck2.Gen in
+        let* w = Ethereum_word.gen in
+        let w' = Ethereum_word.(of_array (to_array w)) in
+        return (w, w'))
+       (fun (w, w') -> Ethereum_word.(equal w w'))
+
+let store_from_and_to_words =
+  QCheck_ounit.to_ounit2_test
+  @@ QCheck2.Test.make ~name:"Eth word to, store, and from array"
+       ~print:(fun (w, w') ->
+         Format.asprintf "%a != %a" Ethereum_word.pp w Ethereum_word.pp w')
+       (let open QCheck2.Gen in
+        let* w, m = gen_evm_word in
+        Memory.store_array m 0 (Ethereum_word.to_array w);
+        return (w, Ethereum_word.of_array (Memory.load_into_array m 0 32l)))
+       (fun (w, w') -> Ethereum_word.(equal w w'))
 
 let store_load =
   let open QCheck2.Gen in
@@ -39,4 +67,6 @@ let store_load =
         return (k, v, k_arr, v_arr, test))
        (fun (_, v, _, _, test) -> Ethereum_word.(equal v test))
 
-let test = "Test Ethereum-specific operations" >::: [ store_load ]
+let test =
+  "Test Ethereum-specific operations"
+  >::: [ store_load; to_and_from_word; store_from_and_to_words ]

@@ -70,12 +70,11 @@ let ethereum_cd_of_hex s =
     else s
   in
   let l = String.length s / 2 in
-  let arr = Array.make l 0l in
+  let arr = Array.make l 0 in
   for i = 0 to l - 1 do
     let hex_idx = i * 2 in
     let high = hex_char_to_int (String.get s hex_idx) in
     let low = hex_char_to_int (String.get s (hex_idx + 1)) in
-    Array.set arr i (Int32.of_int ((high * 16) + low))
+    Array.set arr i ((high * 16) + low)
   done;
-    Format.eprintf "arr: %a@." Ethereum_cd.pp arr;
   arr

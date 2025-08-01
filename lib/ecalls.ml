@@ -7,7 +7,6 @@ let to_int x =
 
 let get_a0_a1 Cpu.{ r = Registers.{ t_r_a0; t_r_a1; _ }; _ } = (t_r_a0, t_r_a1)
 let get_a0_a1_int = apply (fun (x, y) -> (to_int x, to_int y)) get_a0_a1
-
 let account_balance _ = failwith "Unimplemented account balance"
 let account_code _ = failwith "Unimplemented account code"
 let account_code_size _ = failwith "Unimplemented codesize"
@@ -24,8 +23,7 @@ let ethereum_load t =
 let ethereum_store t =
   let Cpu.{ e_m; b; _ } = t in
   let ptr_key, ptr_val = get_a0_a1_int t in
-  let key = Memory.load_into_array b ptr_key 32l in
-  let key = Ethereum_word.of_array key in
+  let key = Ethereum_word.of_array (Memory.load_into_array b ptr_key 32l) in
   let v = Ethereum_word.of_array (Memory.load_into_array b ptr_val 32l) in
   { t with e_m = Ethereum_mem.store_word e_m key v }
 
@@ -58,7 +56,6 @@ let delegate_call_contract _ = failwith "Unimplemented delegatecall"
 let emit_log _ = failwith "Unimplemented emit log"
 let evm_gas_left _ = failwith "Unimplemented evm gas left"
 let evm_ink_left _ = failwith "Unimplemented evm ink left"
-
 let pay_for_memory_grow t = t
 
 let msg_reentrant t =
@@ -83,9 +80,8 @@ let read_args t =
 let read_return_data _ = failwith "Unimplemented read return data"
 
 let write_result t =
-  let Cpu.{ b; r = Registers.{ t_r_a0 = ptr_read; t_r_a1 = len ; _ }; _ } = t in
-  let rd = Memory.load_into_array b (to_int ptr_read) len in
-  { t with e_rd = Array.map Int32.of_int rd }
+  let Cpu.{ b; r = Registers.{ t_r_a0 = ptr_read; t_r_a1 = len; _ }; _ } = t in
+  { t with e_rd = Memory.load_into_array b (to_int ptr_read) len }
 
 let return_data_size _ = failwith "Unimplemented return data size"
 let static_call_contract _ = failwith "Unimplemented static call contract"
@@ -94,7 +90,7 @@ let tx_ink_price _ = failwith "Unimplemented tx ink price"
 let tx_origin _ = failwith "Unimplemented tx origin"
 
 let args_len t =
-  let Cpu.{ e_cd ; r; _ } = t in
+  let Cpu.{ e_cd; r; _ } = t in
   { t with r = Registers.update r `A0 (Int32.of_int (Array.length e_cd)) }
 
 let console fmt t =
@@ -188,5 +184,4 @@ let ecall fmt t =
     | Tx_ink_price -> tx_ink_price t
     | Tx_origin -> tx_origin t
     | Args_len -> args_len t
-    | Console -> console fmt t
-  )
+    | Console -> console fmt t)

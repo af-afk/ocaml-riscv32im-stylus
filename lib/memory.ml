@@ -56,10 +56,9 @@ module Region = struct
       ) 0 in
     return m
 
-  let gen_evm_word_pair =
+  let gen_size size =
     let open QCheck2.Gen in
     let* desc = string_small_of printable in
-    let size = 64 in
     let m = create ~desc ~base:0 ~size () in
     let* _ = fix (fun self i ->
         if i >= size then pure ()
@@ -69,6 +68,10 @@ module Region = struct
           self (i + 1)
       ) 0 in
     return m
+
+  let gen_evm_word_pair = gen_size 64
+
+  let gen_evm_word = gen_size 32
 end
 
 type t = Region.t list [@@deriving show]
@@ -92,6 +95,11 @@ let gen =
       let new_region = Region.{ r with base = next_base } in
       make (new_region :: acc) (next_base + new_region.size) rest in
   make [] 0 sorted
+
+let gen_evm_word =
+  let open QCheck2.Gen in
+  let* x = Region.gen_evm_word in
+  return [x]
 
 let gen_evm_word_pair =
   let open QCheck2.Gen in
@@ -280,7 +288,7 @@ let store_byte_sim regions addr value =
 
 let store_array regions pos arr =
   for i = 0 to Array.length arr - 1 do
-    store_byte regions (pos + i) (Array.get arr i)
+    store_byte regions (pos + i) (Int32.of_int (Array.get arr i))
   done
 
 let store_halfword regions addr value =

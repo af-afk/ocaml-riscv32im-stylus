@@ -1,107 +1,60 @@
-let compare_int32 = Int32.compare
+let compare_int = Int.compare
 
-type t = int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32
+type t =
+  int * int * int * int * int * int * int * int *
+  int * int * int * int * int * int * int * int *
+  int * int * int * int * int * int * int * int *
+  int * int * int * int * int * int * int * int
 [@@deriving qcheck2, compare, eq]
 
-let pp fmt (w7, w6, w5, w4, w3, w2, w1, w0) =
-  Format.fprintf fmt "0x%08lx%08lx%08lx%08lx%08lx%08lx%08lx%08lx"
-    w7 w6 w5 w4 w3 w2 w1 w0
+let pp fmt (b31, b30, b29, b28, b27, b26, b25, b24,
+            b23, b22, b21, b20, b19, b18, b17, b16,
+            b15, b14, b13, b12, b11, b10, b9, b8,
+            b7, b6, b5, b4, b3, b2, b1, b0) =
+  let b = [b31; b30; b29; b28; b27; b26; b25; b24;
+               b23; b22; b21; b20; b19; b18; b17; b16;
+               b15; b14; b13; b12; b11; b10; b9; b8;
+               b7; b6; b5; b4; b3; b2; b1; b0] in
+  Format.fprintf fmt "0x%s"
+    (String.concat "" (List.map (fun b -> Printf.sprintf "%02x" (b land 0xff)) b))
 
-let zero = 0l, 0l, 0l, 0l, 0l, 0l, 0l, 0l
+let zero = (0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0)
 
-let max = let m = Int32.max_int in m, m, m, m, m, m, m, m
+let max =
+  let m = 255 in  (* max byte value *)
+  (m, m, m, m, m, m, m, m,
+   m, m, m, m, m, m, m, m,
+   m, m, m, m, m, m, m, m,
+   m, m, m, m, m, m, m, m)
 
 let of_int x =
-  let l = Int32.of_int (x land 0xffffffff) in
-  let r = Int32.of_int ((x lsr 32) land 0xffffffff) in
-  (0l, 0l, 0l, 0l, 0l, 0l, l, r)
+  let b0 = x land 0xff in
+  let b1 = (x lsr 8) land 0xff in
+  let b2 = (x lsr 16) land 0xff in
+  let b3 = (x lsr 24) land 0xff in
+  let b4 = (x lsr 32) land 0xff in
+  let b5 = (x lsr 40) land 0xff in
+  let b6 = (x lsr 48) land 0xff in
+  let b7 = (x lsr 56) land 0xff in
+  (0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0,
+   b0, b1, b2, b3, b4, b5, b6, b7)
 
-let to_array (w7, w6, w5, w4, w3, w2, w1, w0) =
-  let arr = Array.make 32 0l in
-  let open Int32 in
-  arr.(0) <- logand (shift_right_logical w7 24) 0xffl;
-  arr.(1) <- logand (shift_right_logical w7 16) 0xffl;
-  arr.(2) <- logand (shift_right_logical w7 8) 0xffl;
-  arr.(3) <- logand w7 0xffl;
-  arr.(4) <- logand (shift_right_logical w6 24) 0xffl;
-  arr.(5) <- logand (shift_right_logical w6 16) 0xffl;
-  arr.(6) <- logand (shift_right_logical w6 8) 0xffl;
-  arr.(7) <- logand w6 0xffl;
-  arr.(8) <- logand (shift_right_logical w5 24) 0xffl;
-  arr.(9) <- logand (shift_right_logical w5 16) 0xffl;
-  arr.(10) <- logand (shift_right_logical w5 8) 0xffl;
-  arr.(11) <- logand w5 0xffl;
-  arr.(12) <- logand (shift_right_logical w4 24) 0xffl;
-  arr.(13) <- logand (shift_right_logical w4 16) 0xffl;
-  arr.(14) <- logand (shift_right_logical w4 8) 0xffl;
-  arr.(15) <- logand w4 0xffl;
-  arr.(16) <- logand (shift_right_logical w3 24) 0xffl;
-  arr.(17) <- logand (shift_right_logical w3 16) 0xffl;
-  arr.(18) <- logand (shift_right_logical w3 8) 0xffl;
-  arr.(19) <- logand w3 0xffl;
-  arr.(20) <- logand (shift_right_logical w2 24) 0xffl;
-  arr.(21) <- logand (shift_right_logical w2 16) 0xffl;
-  arr.(22) <- logand (shift_right_logical w2 8) 0xffl;
-  arr.(23) <- logand w2 0xffl;
-  arr.(24) <- logand (shift_right_logical w1 24) 0xffl;
-  arr.(25) <- logand (shift_right_logical w1 16) 0xffl;
-  arr.(26) <- logand (shift_right_logical w1 8) 0xffl;
-  arr.(27) <- logand w1 0xffl;
-  arr.(28) <- logand (shift_right_logical w0 24) 0xffl;
-  arr.(29) <- logand (shift_right_logical w0 16) 0xffl;
-  arr.(30) <- logand (shift_right_logical w0 8) 0xffl;
-  arr.(31) <- logand w0 0xffl;
-  arr
+let to_array (b31, b30, b29, b28, b27, b26, b25, b24,
+              b23, b22, b21, b20, b19, b18, b17, b16,
+              b15, b14, b13, b12, b11, b10, b9, b8,
+              b7, b6, b5, b4, b3, b2, b1, b0) =
+  [|b31; b30; b29; b28; b27; b26; b25; b24;
+    b23; b22; b21; b20; b19; b18; b17; b16;
+    b15; b14; b13; b12; b11; b10; b9; b8;
+    b7; b6; b5; b4; b3; b2; b1; b0|]
 
 let of_array a =
-  let open Int32 in
-  let w7 =
-    logor (logor (logor
-                    (shift_left (of_int a.(0)) 24)
-                    (shift_left (of_int a.(1)) 16))
-             (shift_left (of_int a.(2)) 8))
-      (of_int a.(3)) in
-  let w6 =
-    logor (logor (logor
-                    (shift_left (of_int a.(4)) 24)
-                    (shift_left (of_int a.(5)) 16))
-             (shift_left (of_int a.(6)) 8))
-      (of_int a.(7)) in
-  let w5 =
-    logor (logor (logor
-                    (shift_left (of_int a.(8)) 24)
-                    (shift_left (of_int a.(9)) 16))
-             (shift_left (of_int a.(10)) 8))
-      (of_int a.(11)) in
-  let w4 =
-    logor (logor (logor
-                    (shift_left (of_int a.(12)) 24)
-                    (shift_left (of_int a.(13)) 16))
-             (shift_left (of_int a.(14)) 8))
-      (of_int a.(15)) in
-  let w3 =
-    logor (logor (logor
-                    (shift_left (of_int a.(16)) 24)
-                    (shift_left (of_int a.(17)) 16))
-             (shift_left (of_int a.(18)) 8))
-      (of_int a.(19)) in
-  let w2 =
-    logor (logor (logor
-                    (shift_left (of_int a.(20)) 24)
-                    (shift_left (of_int a.(21)) 16))
-             (shift_left (of_int a.(22)) 8))
-      (of_int a.(23)) in
-  let w1 =
-    logor (logor (logor
-                    (shift_left (of_int a.(24)) 24)
-                    (shift_left (of_int a.(25)) 16))
-             (shift_left (of_int a.(26)) 8))
-      (of_int a.(27)) in
-  let w0 =
-    logor (logor (logor
-                    (shift_left (of_int a.(28)) 24)
-                    (shift_left (of_int a.(29)) 16))
-             (shift_left (of_int a.(30)) 8))
-      (of_int a.(31)) in
-  (w7, w6, w5, w4, w3, w2, w1, w0)
-
+  (a.(0), a.(1), a.(2), a.(3), a.(4), a.(5), a.(6), a.(7),
+   a.(8), a.(9), a.(10), a.(11), a.(12), a.(13), a.(14), a.(15),
+   a.(16), a.(17), a.(18), a.(19), a.(20), a.(21), a.(22), a.(23),
+   a.(24), a.(25), a.(26), a.(27), a.(28), a.(29), a.(30), a.(31))

@@ -34,7 +34,11 @@ tool takes a smple path to load. The program can exit by using EBREAK.
 
 The simplest use is with a test executable, test/risc-hello-world:
 
-	./_build/default/bin/main.exe test/risc-hello-world $(cast calldata 'hello(uint256)' 123)
+	cast --abi-decode 'hello()(uint256)' $(\
+		./_build/default/bin/main.exe test/risc-hello-world $(\
+			cast calldata 'hello(uint256)' 123
+		)
+	)
 
 This contains the contract code:
 

@@ -1,11 +1,11 @@
 
-type t = int32 Array.t
+type t = int Array.t
 
 let gen =
-  QCheck2.Gen.(array_size (int_range 0 100) int32)
+  QCheck2.Gen.(array_size (int_range 0 100) int)
 
 let empty = [||]
 
 let pp fmt arr =
   Format.fprintf fmt "0x";
-  Array.iter (Format.fprintf fmt "%02lx") arr
+  Array.iter (Format.fprintf fmt "%02x") arr
