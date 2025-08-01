@@ -4,6 +4,8 @@
 This code simulates RISCV32IM code, with some supported ecalls for EVM and Stylus-specific
 operations. It's intended to be used with Arbitrum Stylus, with a forked SDK.
 
+This is still very much in a TODO state!
+
 ## Installation
 
 To build the simulator, the following is needed:
